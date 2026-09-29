@@ -59,3 +59,20 @@ class SkillTest(unittest.TestCase):
         )
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.splitlines(), ["local_a\tlogin\t/x/wt-login"])
+
+    def test_skill_primer_readme_and_desktop_notes_teach_the_decision_log(self):
+        from coms.cli import PRIMER
+        texts = {"SKILL.md": self.body, "PRIMER": PRIMER}
+        for name in ("README.md", os.path.join("skills", "coms", "references", "claude-desktop.md")):
+            with open(os.path.join(KIT_ROOT, name)) as fh:
+                texts[name] = fh.read()
+        for name, text in texts.items():
+            self.assertIn("coms decisions", text, name)
+        for name in ("SKILL.md", "PRIMER", "README.md"):
+            self.assertIn("coms decide ", texts[name], name)
+            self.assertIn("--quote", texts[name], name)
+        for name in ("SKILL.md", "PRIMER", "README.md"):
+            self.assertIn("--quote '", texts[name], name)
+            self.assertIn("'\\''", texts[name], name)
+        for name, text in texts.items():
+            self.assertNotIn('--quote "', text, name)

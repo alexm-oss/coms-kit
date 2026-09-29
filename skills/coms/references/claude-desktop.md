@@ -35,3 +35,13 @@ the peer's last activity in the session list before assuming it acted.
 Holder ids look like `claude-<8 hex>` when the coms Claude Code hook assigned
 them. A `pid-<n>` entry for the same worktree is a stale shadow of an early
 enroll; treat the `claude-` entry as the live window.
+
+## Before asking the human
+
+`coms decisions` holds the answers agents recorded. An answer the human gave in
+a window that did not record it is still in that window's transcript: the
+session transcript search tool (`mcp__ccd_session_mgmt__search_session_transcripts`)
+finds it by keyword. Check both before you put a question to the human. If the
+search turns up an answer, read that part of the session to make sure it is the
+human's own message, not an agent's question or summary; then record it with
+`coms decide`, quoting that message, so the next agent finds it in the log.

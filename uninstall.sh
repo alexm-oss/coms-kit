@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Remove what install.sh added: the launcher, the skill and the optional Claude
 # Code hooks. Anything coms-kit did not install is left alone. The coms state
-# (leases, room, inboxes) stays unless you pass --purge, which removes it only
+# (leases, room, inboxes, decision log) stays unless you pass --purge, which removes it only
 # if install.sh created it.
 #
 # Usage: ./uninstall.sh [--purge]

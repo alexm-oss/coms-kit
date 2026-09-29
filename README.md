@@ -56,10 +56,19 @@ Tell your agent to use the coms skill (in Claude Code, type `/coms`). By hand:
     coms status                                # who holds what
     coms msg <holder-id> "text"                # message another agent
     coms inbox                                 # read yours
+    coms decisions <keyword>                   # before you ask the human anything
+    coms decide <topic> '<answer>' --quote '<their exact words>'
 
 `coms do` waits for its turn, runs the command with a heartbeat keeping the lease
 alive, releases, and returns the command's exit code. If it cannot get the lease
 it exits 75 and runs nothing. A crashed holder's lease expires after 30 seconds.
+
+When the human answers a question, the agent that heard it records the answer
+with `coms decide`, and every agent checks `coms decisions` before asking, so
+the human does not have to answer the same thing twice. `--quote` takes the
+human's exact words, so each recorded decision shows what they actually said.
+Keep the answer and the words in single quotes, writing each `'` as `'\''`, so
+the shell passes them on unchanged.
 
 `coms guard` marks the repo inside `.git`. Where git owns the hooks folder and no
 pre-commit or pre-merge-commit hook exists yet, it also installs a backstop hook
@@ -70,8 +79,8 @@ their own hooks, husky or otherwise, keep them untouched and get the mark only.
 
 A short `flock(2)` mutex guards a JSON state file in `~/.claude/coms` (or
 `$COMS_DIR`). Each lease has a holder, a fencing token and a 30 second expiry,
-renewed every 15 seconds while the command runs. The room and the inboxes are
-small files next to it.
+renewed every 15 seconds while the command runs. The room, the inboxes and the
+decision log are small files next to it.
 
 ## Remove
 

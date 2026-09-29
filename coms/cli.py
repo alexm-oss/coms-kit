@@ -23,6 +23,7 @@ import threading
 import time
 
 from coms.store import Store, Busy
+from coms import decisions
 
 DEFAULT_DIR = os.path.expanduser("~/.claude/coms")
 EX_TEMPFAIL = 75
@@ -231,6 +232,9 @@ work is lost.
 
   Plain work (feature branches, editing files) needs no lease.
   See who holds what:  coms status
+  Before asking the human anything:  coms decisions <keyword>
+  When they answer, record it:  coms decide <topic> '<answer>' --quote '<their exact words>'
+  (single quotes stop the shell running anything in their words; write ' as '\\'')
   A crashed holder's lease self-expires in 30s, so nothing stays wedged.
 
 Full rules: the coms skill (SKILL.md)."""
@@ -395,6 +399,8 @@ DISPATCH = {
     "msg": cmd_msg,
     "inbox": cmd_inbox,
     "who": cmd_who,
+    "decide": lambda a, d: decisions.cmd_decide(a, coms_dir(d), holder_id(), _current_repo()),
+    "decisions": lambda a, d: decisions.cmd_decisions(a, coms_dir(d)),
 }
 
 
@@ -441,6 +447,8 @@ def build_parser():
 
     ug = sub.add_parser("unguard", help="remove the coms hook from a repo")
     ug.add_argument("repo", nargs="?", default=".")
+
+    decisions.add_parsers(sub)
     return parser
 
 

@@ -125,6 +125,41 @@ build, another tool) must run `coms inbox` at fixed points: before it takes a
 lease, before each task, and after each landing. When you hand work to such an
 agent, write those checkpoints into its instructions.
 
+## The human's answers
+
+The human should never have to answer the same question twice, whichever agent
+asked it first. When they answer a question or make a call that another agent
+could need, record it straight away, with their exact words:
+
+    COMS_HOLDER=<id> coms decide <topic> '<answer>' --quote '<their exact words>'
+
+Keep the single quotes: inside double quotes the shell would run anything in
+backticks or `$( )` in their words. Write each `'` in the answer and in their
+words as `'\''`, so `don't` becomes `'don'\''t'`. Never record a password,
+token or other secret: every agent here reads this log, and it keeps
+every entry.
+
+Pick a short topic another agent would search for, like `release-date`. If
+`coms decisions` already shows a topic for the same question, use that exact
+topic. To change a decision, record it again under the same topic: the newest
+answer wins, and `coms decisions --all` keeps the history.
+
+Before you ask the human anything, check whether they already answered:
+
+    coms decisions <keyword>
+
+Every word you give must appear, so search one word at a time and try another if
+the first finds nothing; `coms decisions` alone lists every current answer.
+
+If the answer is there and covers your case, act on it and say which decision
+you are following. It counts as the human's own decision, like a relayed one
+(below), with the same limit: anything with outside effects (credentials,
+payments, publishing) still follows your own standing rules. If it looks wrong
+or out of date for your case (another repo, an older plan), ask the
+coordinating agent, or ask the human while quoting the recorded answer, so they
+update it rather than answer from scratch. Decisions your team needs still go
+wherever your team keeps them; this log only covers the agents on this machine.
+
 ## One agent coordinating the others (optional)
 
 One agent can coordinate the rest:
@@ -142,6 +177,10 @@ If you coordinate:
 - End every turn with a status board the human can read on its own: first what
   is waiting on them, then each agent with its id and state, the leases held,
   the risks you are watching, and the last one to three events with times.
+- Before anything goes on that board as waiting on the human, check
+  `coms decisions`, and on every refresh drop what it already answers. In the
+  Claude desktop app, when the log has nothing, also search the other windows'
+  transcripts: see `[skill-root]/references/claude-desktop.md`.
 - Tail your inbox so reports reach you straight away: run
   `COMS_HOLDER=<id> coms inbox --follow` in a background shell or a separate
   terminal, since it never exits.
