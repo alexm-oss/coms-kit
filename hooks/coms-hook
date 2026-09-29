@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# coms guard hook. Installed by `coms guard` as pre-commit and pre-merge-commit.
+#
+# It blocks a write to a guarded branch (default: main / master) while another
+# actor holds the coms lease on that branch, so a direct commit can never clobber
+# a landing already in progress. It still chains to a hook that an older coms
+# guard moved aside (<name>.coms-orig), if there is one.
+#
+# Failure policy: block ONLY on a confirmed conflict (coms check exit 3). If coms
+# is missing or errors, allow the commit (fail open) so a misconfigured coms can
+# never wedge every commit on the machine.
+
+hook_name="$(basename "$0")"
+branch="$(git symbolic-ref --short -q HEAD 2>/dev/null || echo DETACHED)"
+guarded="$(git config --get coms.branches 2>/dev/null || echo 'main master')"
+coms_bin="${COMS_BIN:-$(git config --get coms.bin 2>/dev/null || echo coms)}"
+
+is_guarded=0
+for b in $guarded; do
+  if [ "$b" = "$branch" ]; then is_guarded=1; fi
+done
+
+if [ "$is_guarded" = "1" ]; then
+  # A bare name lets coms add the repo from the shared .git, so a linked
+  # worktree checks the same lease as the main checkout.
+  $coms_bin check "$branch" >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" = "3" ]; then
+    echo "coms: '$branch' in this repo is held by another actor right now." >&2
+    echo "coms: this $hook_name is blocked so you do not clobber their landing." >&2
+    echo "coms: check 'coms status', or land safely via 'coms do $branch -- git ...'." >&2
+    exit 1
+  fi
+fi
+
+# chain to a hook an older coms guard moved aside, if any
+orig="$(dirname "$0")/${hook_name}.coms-orig"
+if [ -x "$orig" ]; then exec "$orig" "$@"; fi
+exit 0

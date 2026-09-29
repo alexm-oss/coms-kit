@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""coms-peer: resolve a coms holder id (or a worktree name) to the CURRENT
+Claude desktop app session id, so a coordinating window can message it.
+
+Contract:
+    <list_sessions JSON on stdin>  |  coms-peer <holder-or-worktree>
+
+The desktop app's session list is the only current source of a worktree's live
+session id; old session logs on disk go stale, so this tool never reads them.
+You pipe the session list in. The join is on the cwd's folder name, because a
+session's branch can differ from its worktree folder name.
+
+Prints one tab-separated line per match, newest activity first:
+    <session id>\t<title>\t<cwd>
+Exit 1 (with a hint on stderr) if nothing matches.
+"""
+import argparse
+import json
+import os
+import sys
+
+COMS_THREADS = os.path.join(
+    os.environ.get("COMS_DIR") or os.path.expanduser("~/.claude/coms"), "threads"
+)
+
+
+def holder_to_worktree(q):
+    """If q is a coms holder id, return the worktree folder it enrolled from
+    (the repo name for older entries). Otherwise return q unchanged: it is
+    already a worktree folder name."""
+    safe = "".join(c if c.isalnum() or c in "-_." else "_" for c in q)
+    p = os.path.join(COMS_THREADS, safe + ".json")
+    if os.path.isfile(p):
+        try:
+            with open(p) as fh:
+                entry = json.load(fh)
+            return entry.get("worktree") or entry.get("repo") or q
+        except Exception:
+            return q
+    return q
+
+
+def main():
+    ap = argparse.ArgumentParser(description="resolve a coms holder/worktree to a desktop session id")
+    ap.add_argument("target", help="coms holder id or a worktree name")
+    ap.add_argument("--sessions", help="path to list_sessions JSON (default: read stdin)")
+    args = ap.parse_args()
+
+    raw = open(args.sessions).read() if args.sessions else sys.stdin.read()
+    if not raw.strip():
+        print("coms-peer: no list_sessions JSON on stdin. Pipe the "
+              "mcp__ccd_session_mgmt__list_sessions result in.", file=sys.stderr)
+        sys.exit(2)
+    try:
+        sessions = json.loads(raw)
+    except json.JSONDecodeError as e:
+        print(f"coms-peer: could not parse sessions JSON: {e}", file=sys.stderr)
+        sys.exit(2)
+
+    worktree = holder_to_worktree(args.target)
+
+    matches = []
+    for s in sessions:
+        cwd = (s.get("cwd") or "").rstrip("/")
+        base = os.path.basename(cwd)
+        branch_tail = (s.get("branch") or "").split("/")[-1]
+        # primary join: the session's folder name == the enrolled worktree folder.
+        # fallbacks: the raw target string, or the branch tail (last resort).
+        if worktree == base or args.target == base or worktree == branch_tail:
+            matches.append(s)
+
+    if not matches:
+        print(f"coms-peer: no desktop session matches '{args.target}' "
+              f"(resolved worktree '{worktree}'). That window may not be running in "
+              f"the Claude desktop app, or it enrolled before coms recorded worktree "
+              f"names. Match it by title or intent instead.", file=sys.stderr)
+        sys.exit(1)
+
+    matches.sort(key=lambda s: s.get("lastActivityAt", ""), reverse=True)
+    for s in matches:
+        print(f"{s.get('sessionId','')}\t{s.get('title','')}\t{s.get('cwd','')}")
+
+
+if __name__ == "__main__":
+    main()

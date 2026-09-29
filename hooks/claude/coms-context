@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# coms-kit hook: coms UserPromptSubmit hook for Claude Code.
+#
+# In a repo marked by `coms guard`, prints a short reminder with a stable
+# per-window holder id, then any coms messages this window has not seen yet.
+# It prints nothing anywhere else. On exit 0, stdout joins the turn's context.
+
+input=$(cat 2>/dev/null)
+[ -z "$input" ] && exit 0
+
+cwd=$(printf '%s' "$input" | python3 -c 'import sys,json;print(json.load(sys.stdin).get("cwd",""))' 2>/dev/null)
+sid=$(printf '%s' "$input" | python3 -c 'import sys,json;print(json.load(sys.stdin).get("session_id",""))' 2>/dev/null)
+[ -z "$cwd" ] || [ -z "$sid" ] && exit 0
+
+common=$(git -C "$cwd" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || exit 0
+common=${common%/}
+if [ ! -f "$common/coms-enabled" ]; then
+  # Repos guarded before the marker existed only carry the sentinel in pre-commit.
+  hooks_dir=$(git -C "$cwd" rev-parse --path-format=absolute --git-path hooks 2>/dev/null) || exit 0
+  grep -q "coms guard hook" "$hooks_dir/pre-commit" 2>/dev/null || exit 0
+fi
+
+base=$(basename "$common")
+if [ "$base" = ".git" ]; then repo=$(basename "$(dirname "$common")"); else repo=${base%.git}; fi
+holder="claude-${sid:0:8}"
+state="${COMS_DIR:-$HOME/.claude/coms}"
+
+cat <<EOF
+[coms] This repo ($repo) is coordinated: other agents on this machine may be working
+here too. Before anything only one agent should do at a time (a merge to a local
+main, a ship or deploy, a shared device), take your turn instead of running it
+directly:
+  COMS_HOLDER=$holder coms do main -- <your git or merge command>
+  COMS_HOLDER=$holder coms do <name> -- <any other shared command>
+A bare name becomes $repo:<name> from any worktree. It waits your turn, runs the
+command, releases, and returns the command's exit code. Use the same
+COMS_HOLDER=$holder for every coms command in this window. Room: coms status
+EOF
+
+# Unseen messages go straight into the turn's context, so reading them needs no
+# discipline. A seen watermark (line count) prevents repeats; the newest 5 are
+# shown and older ones are marked seen with a note (coms inbox has them all).
+inbox="$state/inbox/$holder.jsonl"
+if [ -f "$inbox" ]; then
+  seen_dir="$state/inbox-seen"
+  mkdir -p "$seen_dir" 2>/dev/null
+  seen_file="$seen_dir/$holder"
+  total=$(wc -l < "$inbox" 2>/dev/null | tr -d ' ')
+  seen=$(cat "$seen_file" 2>/dev/null | tr -d ' ')
+  case "$seen" in ''|*[!0-9]*) seen=0 ;; esac
+  if [ "${total:-0}" -gt "$seen" ]; then
+    new=$((total - seen))
+    show=$new; [ "$show" -gt 5 ] && show=5
+    echo ""
+    echo "[coms] UNREAD INBOX: $new new message(s) for $holder, shown below. Act on anything actionable before other work. Full history: coms inbox"
+    [ "$new" -gt "$show" ] && echo "[coms] ($((new - show)) older unread not shown here, run coms inbox)"
+    tail -n "$show" "$inbox" | python3 -c '
+import sys, json, time
+for line in sys.stdin:
+    try:
+        m = json.loads(line)
+        ts = time.strftime("%H:%M", time.localtime(m.get("ts", 0)))
+        txt = m.get("text", "")
+        if len(txt) > 900: txt = txt[:900] + " ...[truncated, coms inbox has it all]"
+        print("  [%s] %s: %s" % (ts, m.get("from", "?"), txt))
+    except Exception:
+        pass
+' 2>/dev/null
+    printf '%s' "$total" > "$seen_file"
+  fi
+fi
+exit 0
