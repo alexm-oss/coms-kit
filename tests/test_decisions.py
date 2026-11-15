@@ -11,6 +11,7 @@ from unittest import mock
 
 from coms.decisions import FIELDS, DecisionLog, format_line, select
 from coms.mutex import FileMutex
+from coms.store import Store
 from coms import cli
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -74,27 +75,27 @@ class DecisionLogTest(unittest.TestCase):
         self.assertEqual([(e["answer"], current) for e, current in rows], [("ship monday", True)])
 
     def test_text_finds_old_wording_but_shows_the_current_answer(self):
-        self.log.record("screen-access-prompt", "keep it", "keep the monthly prompt")
-        self.log.record("screen-access-prompt", "remove it", "get rid of it")
+        self.log.record("sample-topic", "keep it", "keep the example setting")
+        self.log.record("sample-topic", "remove it", "no longer needed")
         entries = self.log.entries()
         self.assertEqual(
-            [(e["answer"], current) for e, current in select(entries, "monthly")],
+            [(e["answer"], current) for e, current in select(entries, "example")],
             [("remove it", True)],
         )
         self.assertEqual(
-            [(e["answer"], current) for e, current in select(entries, "monthly", include_replaced=True)],
+            [(e["answer"], current) for e, current in select(entries, "example", include_replaced=True)],
             [("remove it", True), ("keep it", False)],
         )
         self.assertEqual(len(select(entries, "remove")), 1)
 
     def test_every_word_of_text_must_appear(self):
-        self.log.record("screen-access-prompt", "remove it", "get rid of it")
-        self.assertEqual(len(select(self.log.entries(), "SCREEN prompt")), 1)
-        self.assertEqual(select(self.log.entries(), "screen banana"), [])
+        self.log.record("sample-topic", "remove it", "no longer needed")
+        self.assertEqual(len(select(self.log.entries(), "SAMPLE needed")), 1)
+        self.assertEqual(select(self.log.entries(), "sample banana"), [])
 
     def test_line_breaks_quotes_and_non_ascii_round_trip(self):
         answer = "line one\nline two"
-        quote = 'he said "yes" - na\u00efve \u2713'
+        quote = 'they said "yes" - na\u00efve \u2713'
         self.log.record("t", answer, quote)
         [entry] = self.log.entries()
         self.assertEqual((entry["answer"], entry["quote"]), (answer, quote))
@@ -220,11 +221,149 @@ class DecisionsCliTest(unittest.TestCase):
     def test_decide_then_decisions_finds_it(self):
         code, out, _ = self.run_out("decide", "release-date", "ship", "friday", "--quote", "friday works")
         self.assertEqual((code, out), (0, "coms: recorded decision on release-date\n"))
+        self.assertFalse(os.path.exists(os.path.join(self.dir, "inbox")))
         code, out, _ = self.run_out("decisions", "release")
         self.assertEqual(code, 0)
         self.assertRegex(
             out, r'^release-date: ship friday \(\d{4}-\d\d-\d\d \d\d:\d\d, sess-test\) "friday works"\n$'
         )
+
+    def test_asks_init_creates_private_state_and_preserves_existing_decisions(self):
+        init_flag = "".join(("-", "-init"))
+        dir_flag = "".join(("-", "-dir"))
+        pinned = {
+            "COMS_HOLDER": "codex-lead-window",
+            "COMS_SESSION_ID": "00000000-0000-0000-0000-000000000001",
+            "COMS_HANDOVER_DIR": "/srv/example/.local/share/coms/handovers",
+        }
+        with mock.patch.dict(os.environ, pinned):
+            home = os.path.realpath(tempfile.mkdtemp(prefix="coms-asks-init-"))
+            stdout, stderr = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                code = cli.main([dir_flag, home, "asks", init_flag])
+            self.assertEqual((code, stdout.getvalue(), stderr.getvalue()),
+                             (0, "coms: owner asks initialized\n", ""))
+            queue_path = os.path.join(home, "owner-asks.jsonl")
+            shows_path = os.path.join(home, "owner-ask-shows.jsonl")
+            decisions_path = os.path.join(home, "decisions.jsonl")
+            for path in (queue_path, shows_path, decisions_path):
+                self.assertTrue(os.path.isfile(path))
+                self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                code = cli.main([dir_flag, home, "ask-owner", "release-date", "Ship Friday?"])
+            self.assertEqual(code, 0)
+            with contextlib.redirect_stdout(stdout := io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                code = cli.main([dir_flag, home, "asks", "".join(("-", "-open"))])
+            self.assertEqual(code, 0)
+            self.assertIn("Ship Friday?", stdout.getvalue())
+            with contextlib.redirect_stdout(stdout := io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                code = cli.main([dir_flag, home, "asks", "".join(("-", "-show")), "release-date"])
+            self.assertEqual(code, 0)
+            self.assertIn("shown_at=", stdout.getvalue())
+
+            preserved_home = os.path.realpath(tempfile.mkdtemp(prefix="coms-asks-decisions-"))
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                code = cli.main([dir_flag, preserved_home, "decide", "retain", "yes",
+                                 "".join(("-", "-quote")), "owner said yes"])
+            self.assertEqual(code, 0)
+            decisions_path = os.path.join(preserved_home, "decisions.jsonl")
+            with open(decisions_path, "rb") as source:
+                decisions_before = source.read()
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                code = cli.main([dir_flag, preserved_home, "asks", init_flag])
+            self.assertEqual(code, 0)
+            with open(decisions_path, "rb") as source:
+                self.assertEqual(source.read(), decisions_before)
+
+            for existing_name in ("owner-asks.jsonl", "owner-ask-shows.jsonl"):
+                refusal_home = os.path.realpath(tempfile.mkdtemp(prefix="coms-asks-existing-"))
+                existing_path = os.path.join(refusal_home, existing_name)
+                with open(existing_path, "xb") as destination:
+                    destination.write(b"\n")
+                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr := io.StringIO()):
+                    code = cli.main([dir_flag, refusal_home, "asks", init_flag])
+                self.assertEqual(code, 2)
+                self.assertIn("preserve original", stderr.getvalue())
+                with open(existing_path, "rb") as source:
+                    self.assertEqual(source.read(), b"\n")
+
+            lock_home = os.path.realpath(tempfile.mkdtemp(prefix="coms-asks-lock-home-"))
+            lock_target = os.path.realpath(tempfile.mkdtemp(prefix="coms-asks-lock-target-"))
+            lock_path = os.path.join(lock_target, "coord.lock")
+            lock_bytes = b"preserve existing lock bytes\n"
+            with open(lock_path, "xb") as destination:
+                destination.write(lock_bytes)
+            os.symlink(lock_target, os.path.join(lock_home, "locks"))
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr := io.StringIO()):
+                code = cli.main([dir_flag, lock_home, "asks", init_flag])
+            self.assertEqual(code, 2)
+            self.assertIn("symlink", stderr.getvalue())
+            with open(lock_path, "rb") as source:
+                self.assertEqual(source.read(), lock_bytes)
+            self.assertFalse(os.path.exists(os.path.join(lock_home, "owner-asks.jsonl")))
+            self.assertFalse(os.path.exists(os.path.join(lock_home, "owner-ask-shows.jsonl")))
+
+    def test_ask_owner_initializes_state_reasks_and_tracks_each_show(self):
+        fixture_dir = os.path.realpath(self.dir)
+        run = lambda *argv: self.run_out("--dir", fixture_dir, *argv)
+        self.assertEqual(run("asks", "--open"), (0, "coms: no owner asks open\n", ""))
+        code, out, err = run("ask-owner", "release-date", "Ship Friday?")
+        self.assertEqual((code, out, err), (0, "coms: owner ask recorded for release-date\n", ""))
+        for filename in ("owner-asks.jsonl", "owner-ask-shows.jsonl", "decisions.jsonl"):
+            self.assertEqual(os.stat(os.path.join(fixture_dir, filename)).st_mode & 0o777, 0o600)
+        for _ in range(2):
+            code, out, err = run("asks", "--show", "release-date")
+            self.assertEqual(code, 0, err)
+            self.assertIn("shown_at=", out)
+        with open(os.path.join(fixture_dir, "owner-ask-shows.jsonl")) as source:
+            self.assertEqual(len(source.readlines()), 2)
+        self.assertEqual(run("ask-owner", "release-date", "Changed conditions?")[0], 0)
+        self.assertEqual(run("decide", "release-date", "yes", "--quote", "yes")[0], 0)
+        self.assertEqual(run("asks", "--open"), (0, "coms: no owner asks open\n", ""))
+        code, out, _ = run("ask-owner", "release-date", "Already answered?")
+        self.assertEqual(code, 1)
+        self.assertIn("status=answered", out)
+        os.unlink(os.path.join(fixture_dir, "decisions.jsonl"))
+        self.assertEqual(run("ask-owner", "release-date", "New decision needed?")[0], 0)
+
+    def test_decide_can_notify_one_holder_without_changing_the_decision(self):
+        code, out, err = self.run_out("decide", "release-date", "ship", "friday",
+                                      "--quote", "friday works", "--notify-holder", "claude-peer")
+        self.assertEqual((code, out, err),
+                         (0, "coms: recorded decision on release-date\n", ""))
+        [message] = Store(self.dir, "claude-peer").read_inbox()
+        self.assertEqual(sorted(message), ["from", "text", "ts"])
+        self.assertEqual((message["from"], message["text"]),
+                         ("sess-test", "ANSWERED release-date: ship friday"))
+        [decision] = DecisionLog(self.dir).entries()
+        self.assertEqual(sorted(decision), sorted(FIELDS))
+        self.assertEqual((decision["topic"], decision["answer"], decision["quote"]),
+                         ("release-date", "ship friday", "friday works"))
+
+    def test_decide_rejects_invalid_notify_holder_before_recording(self):
+        for target in ("", " ", "../peer", ".hidden", "a" * 129):
+            code, out, err = self.run_out("decide", "t", "a", "--quote", "q",
+                                          "--notify-holder", target)
+            self.assertEqual((code, out), (2, ""))
+            self.assertIn("notify holder must be a holder id", err)
+        self.assertFalse(self.log_exists())
+        self.assertFalse(os.path.exists(os.path.join(self.dir, "inbox")))
+
+    def test_blank_decision_with_notify_writes_no_message(self):
+        code, out, err = self.run_out("decide", "t", "a", "--quote", " ",
+                                      "--notify-holder", "claude-peer")
+        self.assertEqual((code, out), (2, ""))
+        self.assertIn("coms: a decision needs", err)
+        self.assertFalse(self.log_exists())
+        self.assertFalse(os.path.exists(os.path.join(self.dir, "inbox")))
+
+    def test_notify_failure_reports_that_the_decision_was_recorded(self):
+        with mock.patch("coms.decisions.Store.send_message", side_effect=OSError("no inbox")):
+            code, out, err = self.run_out("decide", "t", "a", "--quote", "q",
+                                          "--notify-holder", "claude-peer")
+        self.assertEqual((code, out), (1, ""))
+        self.assertIn("recorded decision on t but could not notify claude-peer", err)
+        self.assertEqual(len(DecisionLog(self.dir).entries()), 1)
 
     def test_decide_without_quote_is_a_usage_error(self):
         err = io.StringIO()

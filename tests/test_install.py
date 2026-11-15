@@ -5,9 +5,58 @@ import subprocess
 import tempfile
 import unittest
 
-KIT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-INSTALL = os.path.join(KIT_ROOT, "install.sh")
-UNINSTALL = os.path.join(KIT_ROOT, "uninstall.sh")
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+class InstallTest(unittest.TestCase):
+    def setUp(self):
+        self.home = tempfile.mkdtemp(prefix="coms-home-")
+        self.tmp = tempfile.mkdtemp(prefix="coms-install-")
+
+    def env(self):
+        """Every override install.sh reads, plus a throwaway HOME, so running
+        this suite can never write into the real ~/.claude."""
+        return dict(
+            os.environ,
+            HOME=self.home,
+            COMS_BIN_DIR=os.path.join(self.tmp, "bin"),
+            COMS_SKILLS_DIR=os.path.join(self.tmp, "skills"),
+            COMS_STATE_DIR=os.path.join(self.tmp, "state"),
+            COMS_HOOKS_DIR=os.path.join(self.tmp, "hooks"),
+        )
+
+    def test_installer_creates_a_launcher_that_runs_the_cli(self):
+        result = subprocess.run(
+            ["bash", os.path.join(REPO_ROOT, "install.sh")],
+            env=self.env(), capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+        launcher = os.path.join(self.tmp, "bin", "coms")
+        self.assertTrue(os.access(launcher, os.X_OK), "launcher not executable")
+
+        run = subprocess.run(
+            [launcher, "status", "--json"],
+            env=dict(self.env(), COMS_DIR=os.path.join(self.tmp, "state")),
+            capture_output=True, text=True,
+        )
+        self.assertEqual(run.returncode, 0, run.stderr)
+        json.loads(run.stdout)  # launcher produced valid JSON: it really ran coms
+        self.assertEqual(os.listdir(self.home), [])
+
+    def test_installer_test_keeps_hooks_out_of_home(self):
+        result = subprocess.run(
+            ["bash", os.path.join(REPO_ROOT, "install.sh"), "--claude-hooks"],
+            env=self.env(), capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(os.path.isfile(os.path.join(self.tmp, "hooks", "coms-context")))
+        self.assertTrue(os.path.isfile(os.path.join(self.tmp, "hooks", "coms-inbox-stop-gate.sh")))
+        self.assertEqual(os.listdir(self.home), [])
+
+
+INSTALL = os.path.join(REPO_ROOT, "install.sh")
+UNINSTALL = os.path.join(REPO_ROOT, "uninstall.sh")
 BASH = os.environ.get("COMS_TEST_BASH", "bash")
 
 
@@ -19,7 +68,7 @@ def files_under(root):
     return out
 
 
-class InstallTest(unittest.TestCase):
+class KitInstallTest(unittest.TestCase):
     def setUp(self):
         self.home = tempfile.mkdtemp(prefix="coms-home-")
         self.env = dict(os.environ, HOME=self.home)
@@ -95,7 +144,7 @@ class InstallTest(unittest.TestCase):
 
     def test_install_from_a_path_with_spaces(self):
         kit = os.path.join(tempfile.mkdtemp(prefix="coms-sp-"), "my tools", "coms-kit")
-        shutil.copytree(KIT_ROOT, kit, ignore=shutil.ignore_patterns(".git", "__pycache__"))
+        shutil.copytree(REPO_ROOT, kit, ignore=shutil.ignore_patterns(".git", "__pycache__"))
         r = subprocess.run([BASH, os.path.join(kit, "install.sh")], env=self.env,
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -122,6 +171,20 @@ class InstallTest(unittest.TestCase):
         self.assertTrue(os.path.isdir(os.path.join(self.home, ".claude", "coms")))
         self.assertFalse(os.path.exists(self.launcher))
         self.assertFalse(os.path.exists(self.skill))
+        self.assertNotIn("install.sh again", r.stdout)
+        self.assertIn("-m coms.cli unguard <repo>", r.stdout)
+
+    def test_unguard_command_printed_by_uninstall_works_without_the_launcher(self):
+        self.assertEqual(self.sh(INSTALL).returncode, 0)
+        repo = os.path.join(self.home, "repo")
+        subprocess.run(["git", "init", "-q", repo], check=True)
+        self.assertEqual(self.launch("guard", repo).returncode, 0)
+        r = self.sh(UNINSTALL)
+        line = next(l for l in r.stdout.splitlines() if "unguard <repo>" in l).strip()
+        run = subprocess.run(["bash", "-c", line.replace("<repo>", "\"$1\""), "unguard", repo],
+                             env=self.env, cwd=self.home, capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertFalse(os.path.exists(os.path.join(repo, ".git", "hooks", "pre-commit")))
 
     def test_refuses_to_replace_a_launcher_it_did_not_install(self):
         os.makedirs(os.path.dirname(self.launcher))

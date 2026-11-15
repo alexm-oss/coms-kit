@@ -1,2 +1,6 @@
 __pycache__/
 *.pyc
+.coms/
+.pytest_cache/
+*.egg-info/
+.DS_Store

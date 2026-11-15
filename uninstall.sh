@@ -7,6 +7,7 @@
 # Usage: ./uninstall.sh [--purge]
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "$0")" && pwd)"
 BIN="${COMS_BIN_DIR:-$HOME/.local/bin}"
 SKILLS="${COMS_SKILLS_DIR:-$HOME/.claude/skills}"
 HOOKS="${COMS_HOOKS_DIR:-$HOME/.claude/hooks}"
@@ -63,6 +64,7 @@ fi
 if [ "$hooks_removed" = 1 ]; then
   echo "Take the coms-context and coms-inbox-stop-gate.sh entries out of ~/.claude/settings.json too."
 fi
-echo "Repos you guarded keep their .git/coms-enabled marker and any backstop hooks;"
-echo "'coms unguard' in each repo removes them. The launcher is gone now, so run"
-echo "./install.sh again, unguard each repo, then run ./uninstall.sh."
+echo "Repos you guarded keep their .git/coms-enabled marker and any backstop hooks"
+echo "(the hooks let commits through once coms is gone). To remove them, run this"
+echo "kit's coms directly, once per repo:"
+printf '  PYTHONPATH=%q python3 -m coms.cli unguard <repo>\n' "$ROOT"

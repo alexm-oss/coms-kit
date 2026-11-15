@@ -1,72 +1,85 @@
 #!/usr/bin/env bash
 # coms-kit hook: coms UserPromptSubmit hook for Claude Code.
 #
-# In a repo marked by `coms guard`, prints a short reminder with a stable
-# per-window holder id, then any coms messages this window has not seen yet.
-# It prints nothing anywhere else. On exit 0, stdout joins the turn's context.
+# When a window's working directory is inside a coms-guarded repo, inject a short
+# reminder (with a stable per-window holder id derived from the session) so any
+# window coordinates shared-branch landings automatically, with no /coms and no
+# paste. It is silent everywhere else: outside a guarded repo it prints nothing.
+#
+# Contract: on exit 0, stdout is added to the model's context for this turn.
 
+umask 077
 input=$(cat 2>/dev/null)
 [ -z "$input" ] && exit 0
 
 cwd=$(printf '%s' "$input" | python3 -c 'import sys,json;print(json.load(sys.stdin).get("cwd",""))' 2>/dev/null)
 sid=$(printf '%s' "$input" | python3 -c 'import sys,json;print(json.load(sys.stdin).get("session_id",""))' 2>/dev/null)
 [ -z "$cwd" ] || [ -z "$sid" ] && exit 0
+# Suggested invocations accept only the same bounded marker alphabet as the CLI.
+case "$sid" in *[!A-Za-z0-9._:-]*) exit 0 ;; esac
+[ "${#sid}" -le 256 ] || exit 0
 
-common=$(git -C "$cwd" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || exit 0
-common=${common%/}
-if [ ! -f "$common/coms-enabled" ]; then
-  # Repos guarded before the marker existed only carry the sentinel in pre-commit.
+# A guarded repo carries the coms-enabled mark in its shared .git (coms guard
+# writes it). Repos guarded before the mark existed carry only the sentinel in
+# their pre-commit hook.
+marker_dir=$(git -C "$cwd" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || exit 0
+if [ ! -f "${marker_dir%/}/coms-enabled" ]; then
   hooks_dir=$(git -C "$cwd" rev-parse --path-format=absolute --git-path hooks 2>/dev/null) || exit 0
   grep -q "coms guard hook" "$hooks_dir/pre-commit" 2>/dev/null || exit 0
 fi
 
-base=$(basename "$common")
-if [ "$base" = ".git" ]; then repo=$(basename "$(dirname "$common")"); else repo=${base%.git}; fi
-holder="claude-${sid:0:8}"
-state="${COMS_DIR:-$HOME/.claude/coms}"
-
-cat <<EOF
-[coms] This repo ($repo) is coordinated: other agents on this machine may be working
-here too. Before anything only one agent should do at a time (a merge to a local
-main, a ship or deploy, a shared device), take your turn instead of running it
-directly:
-  COMS_HOLDER=$holder coms do main -- <your git or merge command>
-  COMS_HOLDER=$holder coms do <name> -- <any other shared command>
-A bare name becomes $repo:<name> from any worktree. It waits your turn, runs the
-command, releases, and returns the command's exit code. Use the same
-COMS_HOLDER=$holder for every coms command in this window. Room: coms status
-EOF
-
-# Unseen messages go straight into the turn's context, so reading them needs no
-# discipline. A seen watermark (line count) prevents repeats; the newest 5 are
-# shown and older ones are marked seen with a note (coms inbox has them all).
-inbox="$state/inbox/$holder.jsonl"
-if [ -f "$inbox" ]; then
-  seen_dir="$state/inbox-seen"
-  mkdir -p "$seen_dir" 2>/dev/null
-  seen_file="$seen_dir/$holder"
-  total=$(wc -l < "$inbox" 2>/dev/null | tr -d ' ')
-  seen=$(cat "$seen_file" 2>/dev/null | tr -d ' ')
-  case "$seen" in ''|*[!0-9]*) seen=0 ;; esac
-  if [ "${total:-0}" -gt "$seen" ]; then
-    new=$((total - seen))
-    show=$new; [ "$show" -gt 5 ] && show=5
-    echo ""
-    echo "[coms] UNREAD INBOX: $new new message(s) for $holder, shown below. Act on anything actionable before other work. Full history: coms inbox"
-    [ "$new" -gt "$show" ] && echo "[coms] ($((new - show)) older unread not shown here, run coms inbox)"
-    tail -n "$show" "$inbox" | python3 -c '
-import sys, json, time
-for line in sys.stdin:
-    try:
-        m = json.loads(line)
-        ts = time.strftime("%H:%M", time.localtime(m.get("ts", 0)))
-        txt = m.get("text", "")
-        if len(txt) > 900: txt = txt[:900] + " ...[truncated, coms inbox has it all]"
-        print("  [%s] %s: %s" % (ts, m.get("from", "?"), txt))
-    except Exception:
-        pass
-' 2>/dev/null
-    printf '%s' "$total" > "$seen_file"
+# Canonical repo name via the common git dir, matching the CLI's _current_repo():
+# every worktree of a repo shares one common dir, so the name is stable. The old
+# --show-toplevel basename returned the WORKTREE name in linked worktrees, and the
+# banner then recommended a worktree-keyed lease (worktree:main) that silently
+# skipped the real queue on <repo>:main.
+common=$(git -C "$cwd" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+repo=""
+if [ -n "$common" ]; then
+  common=${common%/}
+  base=$(basename "$common")
+  if [ "$base" = ".git" ]; then
+    repo=$(basename "$(dirname "$common")")
+  else
+    repo=${base%.git}
   fi
 fi
+[ -z "$repo" ] && repo=$(basename "$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)")
+holder="claude-${sid:0:8}"
+# Choose caller evidence, never copy a marker from an enrollment record.
+# Automatic hooks route only the holder derived from the trusted harness payload.
+session_var=COMS_SESSION_ID
+marker="$sid"
+if [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then
+  if [ "$CLAUDE_CODE_SESSION_ID" != "$sid" ]; then
+    echo "[coms] This repo ($repo) is coordinated. Use your own marked holder for protected operations."
+    echo "[coms] Native marker conflicts with this hook payload; mail injection refused. Resolve your own marker namespace before enrolling or reading."
+    exit 0
+  fi
+  session_var=CLAUDE_CODE_SESSION_ID
+fi
+if [ "${COMS_HOLDER:-}" = "$holder" ] && [ -n "${COMS_SESSION_ID:-}" ]; then
+  session_var=COMS_SESSION_ID
+  marker="$COMS_SESSION_ID"
+  case "$marker" in *[!A-Za-z0-9._:-]*) exit 0 ;; esac
+  [ "${#marker}" -le 256 ] || exit 0
+fi
+
+cat <<EOF
+[coms] This repo ($repo) is coordinated: other agents may be committing
+here at the same time. Before any commit or merge to main/master, or a ship or
+deploy, take your turn instead of running git directly:
+  env -u COMS_SESSION_ID COMS_HOLDER=$holder $session_var=$marker coms do main -- <your git or merge command>
+  env -u COMS_SESSION_ID COMS_HOLDER=$holder $session_var=$marker coms do ship -- <your ship or deploy command>
+Bare "main"/"ship" auto-resolve to $repo:main / $repo:ship from any worktree; never
+hand-build a worktree-named key, it takes a private lease and skips the queue.
+A merge to a shared branch, a ship or a deploy needs the human's own yes first;
+coms do only makes agents take turns, it never grants permission.
+That waits your turn, runs it, releases, and returns the command's exit code. Use
+the same COMS_HOLDER=$holder and $session_var=$marker for every coms command in this window. Room: coms status
+EOF
+
+# Reminder is available before enrollment; mail remains behind the identity gate.
+env -u COMS_SESSION_ID COMS_HOLDER="$holder" "$session_var=$marker" coms identity-check >/dev/null 2>&1 || exit 0
+env -u COMS_SESSION_ID COMS_HOLDER="$holder" "$session_var=$marker" coms hook-notifications context
 exit 0

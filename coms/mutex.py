@@ -32,8 +32,9 @@ class FileMutex:
         """
         parent = os.path.dirname(self.path)
         if parent:
-            os.makedirs(parent, exist_ok=True)
-        fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o644)
+            os.makedirs(parent, mode=0o700, exist_ok=True)
+        fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o600)
+        os.fchmod(fd, 0o600)
         deadline = None if timeout is None else time.monotonic() + timeout
         while True:
             try:

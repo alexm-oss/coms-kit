@@ -61,6 +61,18 @@ class GuardTest(unittest.TestCase):
         result = self.commit()  # hook gone, so not blocked
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_coms_do_lands_through_its_own_backstop_without_a_holder_id(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            cli.main(["guard", self.repo])
+        env = dict(self.env)
+        del env["COMS_HOLDER"]
+        result = subprocess.run(
+            ["python3", "-m", "coms.cli", "do", self.key, "--wait", "0", "--",
+             "git", "-C", self.repo, "commit", "-q", "--allow-empty", "-m", "landed"],
+            env=env, capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def marker(self):
         return os.path.join(self.repo, ".git", "coms-enabled")
 
@@ -146,14 +158,65 @@ class GuardTest(unittest.TestCase):
         self.assertEqual(os.listdir(plain), [])
         self.assertIn("not inside a git repository", err.getvalue())
 
-    def test_coms_do_lands_through_its_own_backstop_without_a_holder_id(self):
-        with contextlib.redirect_stdout(io.StringIO()):
-            cli.main(["guard", self.repo])
+    def test_legacy_installed_hook_works_with_the_new_cli(self):
+        # An older coms-hook, as `coms guard` installed it before the current version.
+        legacy = rb'''#!/usr/bin/env bash
+# coms guard hook. Installed by `coms guard` as pre-commit and pre-merge-commit.
+#
+# It blocks a write to a guarded branch (default: main / master) while another
+# actor holds the coms lease on that branch, so a direct commit can never clobber
+# a landing already in progress. It chains to whatever hook coms replaced.
+#
+# Failure policy: block ONLY on a confirmed conflict (coms check exit 3). If coms
+# is missing or errors, allow the commit (fail open) so a misconfigured coms can
+# never wedge every commit on the machine.
+
+hook_name="$(basename "$0")"
+repo_top="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+repo="$(basename "$repo_top")"
+branch="$(git symbolic-ref --short -q HEAD 2>/dev/null || echo DETACHED)"
+guarded="$(git config --get coms.branches 2>/dev/null || echo 'main master')"
+coms_bin="${COMS_BIN:-$(git config --get coms.bin 2>/dev/null || echo coms)}"
+
+is_guarded=0
+for b in $guarded; do
+  if [ "$b" = "$branch" ]; then is_guarded=1; fi
+done
+
+if [ "$is_guarded" = "1" ]; then
+  key="${repo}:${branch}"
+  $coms_bin check "$key" >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" = "3" ]; then
+    echo "coms: '$key' is held by another actor right now." >&2
+    echo "coms: this $hook_name is blocked so you do not clobber their landing." >&2
+    echo "coms: check 'coms status', or land safely via 'coms do $key -- git ...'." >&2
+    exit 1
+  fi
+fi
+
+# chain to the hook coms replaced, if any
+orig="$(dirname "$0")/${hook_name}.coms-orig"
+if [ -x "$orig" ]; then exec "$orig" "$@"; fi
+exit 0
+'''
+        hooks = os.path.join(self.repo, ".git", "hooks")
+        for name in ("pre-commit", "pre-merge-commit"):
+            path = os.path.join(hooks, name)
+            with open(path, "wb") as fh:
+                fh.write(legacy)
+            os.chmod(path, 0o755)
+        self.assertEqual(self.commit().returncode, 0)
+        Store(self.dir, "another-actor").acquire(self.key)
+        blocked = self.commit()
+        self.assertNotEqual(blocked.returncode, 0)
+        self.assertIn("held by another", blocked.stderr)
+        Store(self.dir, "x").force_release(self.key)
         env = dict(self.env)
         del env["COMS_HOLDER"]
-        result = subprocess.run(
+        landed = subprocess.run(
             ["python3", "-m", "coms.cli", "do", self.key, "--wait", "0", "--",
              "git", "-C", self.repo, "commit", "-q", "--allow-empty", "-m", "landed"],
             env=env, capture_output=True, text=True,
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(landed.returncode, 0, landed.stderr)

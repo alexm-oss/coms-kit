@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Prepare a durable packet without sign-in, account APIs or credential collection.
+set -euo pipefail
+case "${1:-}" in
+  -h|--help)
+    cat <<'EOF'
+Usage: handover-note --to HOLDING_HOLDER --role ROLE --open-loops FILE [--id NAME]
+Writes status, leases, lanes and last messages, current decisions and checkpoints.
+Then releases only idle owned leases; running operations must end first.
+Roles: orchestrator, controller, codex-lead, governor. Open loops is JSON with lists named
+open_work, owner_questions, routines, pending_handoffs and evidence.
+COMS_HOLDER and a native session marker or COMS_SESSION_ID are required.
+COMS_HANDOVER_DIR defaults to ~/.local/share/coms/handovers (private mode 700).
+COMS_DIR is the separate CLI store. Notes are atomic, mode 600, without env secrets.
+Remove credentials and private values from open loops. Obvious credentials are
+refused; no detector recognizes every secret. The holding side must enroll first.
+EOF
+    exit 0 ;;
+esac
+: "${COMS_HOLDER:?set COMS_HOLDER explicitly}"
+coms identity-check
+exec coms handover note "$@"

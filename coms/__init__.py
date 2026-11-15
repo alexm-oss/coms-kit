@@ -1,8 +1,8 @@
-"""coms: a lightweight coordination layer for parallel agents on one machine.
+"""coms: a lightweight, decentralized coordination layer for parallel work.
 
-Agents take turns on risky operations (writing a shared git branch, shipping,
-any named local resource) and can message each other. Built on POSIX flock(2)
-and a JSON state file of leases.
+Actors take turns on risky operations (writing a shared git branch, shipping)
+against one repo on one machine, with no human in the loop. Built on POSIX
+flock(2) plus git's native ref compare-and-swap.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.1.0"

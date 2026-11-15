@@ -77,12 +77,16 @@ mkdir -p "$BIN" "$STATE/locks" "$STATE/threads"
 if [ "$state_is_new" = 1 ]; then
   : > "$STATE/.coms-kit"
 fi
-cat > "$BIN/coms" <<EOF
-#!/usr/bin/env bash
-# coms-kit launcher: runs this kit's coms with the kit first on the import path
-# and the current folder off it, so a coms/ package where you stand cannot stand in.
-exec python3 -c 'import sys; kit = sys.argv.pop(1); sys.path[:] = [kit] + [p for p in sys.path if p != ""]; from coms.cli import main; sys.exit(main())' "$ROOT" "\$@"
-EOF
+# The kit path is written with printf %q, so a folder name holding $( ), backticks
+# or quotes stays a literal path and never runs as a command.
+{
+  printf '%s\n' '#!/usr/bin/env bash'
+  printf '%s\n' "# coms-kit launcher: runs this kit's coms with the kit first on the import path"
+  printf '%s\n' '# and the current folder off it, so a coms/ package where you stand cannot stand in.'
+  printf 'kit=%q\n' "$ROOT"
+  # shellcheck disable=SC2016  # literal on purpose: the launcher expands $kit and $@ when it runs
+  printf '%s\n' 'exec python3 -c '"'"'import sys; kit = sys.argv.pop(1); sys.path[:] = [kit] + [p for p in sys.path if p != ""]; from coms.cli import main; sys.exit(main())'"'"' "$kit" "$@"'
+} > "$BIN/coms"
 chmod +x "$BIN/coms"
 
 if [ "$cli_only" = 0 ]; then
