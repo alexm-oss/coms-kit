@@ -26,7 +26,7 @@ inspection. A bounded read works while coordinating, and an optional
 client-side inbox routine can check for actionable cards. Check actual
 delivery and handling before depending on a routine. Keep unresolved work,
 the original evidence and checkpoint state durable. Restore them per
-inbox after a restart. See the [new Codex window checklist](handover.md#new-codex-lead-checklist).
+inbox after a restart.
 
 ## Verify the handoff
 
@@ -44,3 +44,27 @@ inbox after a restart. See the [new Codex window checklist](handover.md#new-code
 - Report meaningful outcomes to Command in a short card. Keep the
   integration, safety review and publication decisions with their owners.
   A model's verdict and a lease do not supply an owner grant.
+
+## Use tools for pacing, activity and a replacement
+
+When a weekly usage warning affects how many lanes to run, check the
+`pacing` piece with `coms setup --status`. If it is installed, use
+`./codex-pace-watch.sh --usage-file FILE --once` from the installed skill's
+`bin` directory. Supply the weekly percentage and renewal time from a
+trusted usage source. If it is missing, offer `coms setup --add pacing`.
+
+When you need the newest local rollout's activity or settings, use
+`./codex-now.py` from the same directory if `codex-view` is installed.
+It reads Codex app files and may stop working after an app update. Use its
+output as local metadata. If the piece is missing, offer
+`coms setup --add codex-view`.
+
+When a new window will take over the lead route, open the
+[new Codex window checklist](handover.md#new-codex-lead-checklist) if
+`handover-guide` is installed. If it is missing, offer
+`coms setup --add handover-guide` and keep the current work and checkpoints
+durable during the transition.
+
+Offer only the piece that helps with the immediate task. Ask one owner
+question, wait for a decision before adding it, and continue authorised
+work. Follow the invocation checklist to skip this session's declines and outstanding offers.

@@ -35,3 +35,18 @@ ordinary test problem.
    Compare reviews against the last reviewed revision and read the delta
    after the first full review. Report a process blocker that serves no
    fence item so it can be removed.
+
+## When another window needs a rig or plan ruling
+
+If you are coordinating from another window, ask for this role when a
+persistent rig fault or an unresolved coverage decision affects the next
+case, or when a change can alter the permission fence. Use
+`coms who --role governor` to find an enrolled reviewer. If the
+`governor` piece is installed, use this guide to brief that reviewer with
+the exact question and evidence.
+
+Check guide availability with `coms setup --status`. If it is missing,
+offer `coms setup --add governor` in one owner
+question when the role would help this task. Add the piece only after
+the owner agrees. Continue ordinary cases and keep approved work moving.
+Follow the invocation checklist to skip this session's declines and outstanding offers.

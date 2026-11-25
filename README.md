@@ -1,5 +1,7 @@
 # coms
 
+[Start here: a day with two COMS windows](docs/GOLDEN-SETUP.md)
+
 Run several AI coding agents on one computer without them stepping on each other.
 
 If you have a few Claude Code windows and some Codex chats working in the same repos, coms gives them three simple things:

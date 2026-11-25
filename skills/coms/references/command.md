@@ -56,3 +56,24 @@ fence.
 - Report meaningful outcomes in plain words, with a path to the evidence.
   Put routine success on the board. If you expose a dashboard, show the open
   owner question alongside its actual decision topic.
+
+## Use helpers when a task calls for them
+
+Check `coms setup --status` when one of these situations comes up. Run
+helper scripts from the installed skill's `bin` directory.
+
+| Situation | If the piece is installed |
+| --- | --- |
+| More lanes are ready or a usage warning appears | With `pacing`, run `./pace.py USED_PERCENT RESET_TIME` for the Claude five-hour meter or `./codex-pace-watch.sh --usage-file FILE --once` for the Codex weekly meter. Use current meter values and their renewal time. Treat the result as advice about work width. |
+| The host is slow or hot | With `load-watch`, run `./load-watch.sh --once` and check load plus any available thermal reading before changing concurrency. |
+| An ASK or BLOCKER repeats a known symptom | With `known-fixes`, preview matches with `coms known-fixes --catalog FILE` under the dedicated enrolled local holder. Read the matching source and keep the existing reply opt-in. |
+| Many rulings make the active instructions hard to find | With `current-rules`, run `coms current-rules` and open the generated private page. |
+| A scheduled job may be unhealthy | With `job-health`, run `./job-health.py --asset NAME` for the affected launchd label or systemd timer. Read the result before deciding whether to schedule recurring checks. |
+| The owner is away and an actionable state changes | With `notify` and an explicitly approved destination, use `./notify --source SOURCE --state STATE --message 'Short action needed'`. Keep the message shareable and alert only for an action the owner can take. |
+
+When a relevant piece is missing, offer the matching `coms setup --add PIECE`
+command in one owner question. For example, offer `coms setup --add pacing`
+when planning lane width around a current warning. Ask only about the piece
+that addresses the current need. Follow the answer and continue authorised
+work. Use the invocation checklist to skip this session's declines and outstanding offers. Adding a
+piece leaves endpoint configuration, recurring checks and replies opt-in.

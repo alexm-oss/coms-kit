@@ -37,7 +37,7 @@ jobs and configures no live notification endpoint.
 | --- | --- |
 | Orchestrator (`command`) | Talks to the owner, delegates, records decisions and routes questions. |
 | Lead for Codex work (`codex-lead`) | Assigns Codex work, checks source and test evidence, and hands results to integration. |
-| Integration lead (`controller`) | Organises writers, combines their changes, runs the shared tests and proves what landed. Add this role with `--with controller` when several lanes regularly need integration. |
+| Integration lead (`controller`) | Organises writers, combines their changes, runs the shared tests and proves what landed. Add this role with `coms setup --add controller` when several lanes regularly need integration. |
 | Test plan and rig reviewer (`governor`) | Helps size test plans, resolve rig faults and review changes to the permission boundary. |
 | Security reviewer (`security`) | Independently reviews changes to the permission boundary, secret handling, sessions and keys before landing. |
 | Keeper (`keeper`) | Files one sourced card per affected product for each decision and follow-up. |
@@ -51,7 +51,13 @@ needed and budget for one focused review session.
 
 ## Pick individual pieces
 
-Start with a profile and repeat `--with PIECE` or `--without PIECE` for each
+From an installed window, run `coms setup --status` for suggestions or
+`coms setup --status --profile pair` for the two-window comparison. Use
+`coms setup --add PIECE` to keep all your other choices. Older launchers
+can use `./install.sh --status` and `./install.sh --add PIECE` from the
+updated checkout.
+
+To select a whole setup, start with a profile and repeat `--with PIECE` or `--without PIECE` for each
 addition or omission. To add the integration guide and omit two optional
 helpers, run:
 

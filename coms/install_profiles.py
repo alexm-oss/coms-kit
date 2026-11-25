@@ -1,7 +1,10 @@
 """Select the skill files and hooks installed by a public COMS profile."""
 import argparse
+import fcntl
 import re
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 ROLES = ("command", "codex-lead", "governor", "security", "keeper", "controller")
@@ -46,33 +49,96 @@ def staged_skill(source, dest, selected):
     for path in dest.rglob("*.md"):
         def link(match, directory=path.parent):
             label, href = match.groups()
-            if href.startswith(("https://", "http://", "#")) or (directory / href).exists():
+            if href.startswith(("https://", "http://", "#")) or (directory / href.partition("#")[0]).exists():
                 return match.group()
             return label
         text = path.read_text()
         path.write_text(re.sub(r"\[([^]\n]+)\]\(([^)\n]+)\)", link, text))
 
 
-def status(bin_dir):
+NEXT_PROFILE = {"core": "solo", "solo": "pair", "pair": "full-room", "full-room": "full-room"}
+BENEFITS = {
+    "command": "Give one window responsibility for routing work and owner questions",
+    "notify": "Send a state-change alert through a backend you choose",
+    "codex-lead": "Assign Codex work and check the evidence before integration",
+    "pacing": "Compare usage with its reset window before widening the workload",
+    "load-watch": "Check whether a slow machine is under sustained load or thermal pressure",
+    "codex-view": "See recent local Codex activity and settings without opening transcripts",
+    "handover-guide": "Use the full checklist when a window approaches its limit",
+    "governor": "Give test scope and stuck test rigs a dedicated reviewer",
+    "security": "Give sensitive changes an independent second-family review",
+    "keeper": "Keep sourced decisions and follow-ups together for each product",
+    "helper-brief": "Check a proposed helper assignment before starting the helper",
+    "job-health": "List failing scheduled jobs on the local machine",
+    "known-fixes": "Match a stuck card to a previously recorded fix",
+    "current-rules": "Read the current decisions and their replacements on one local page",
+    "controller": "Coordinate integration when several lanes land in one repository",
+}
+
+
+def installed(bin_dir):
     launcher = Path(bin_dir) / "coms"
-    selected = set()
-    profile = "not installed"
+    if not launcher.exists() and not launcher.is_symlink():
+        return "not installed", set()
     if launcher.is_file() and not launcher.is_symlink():
-        for line in launcher.read_text().splitlines():
-            if line.startswith(PREFIX):
-                profile, *pieces = line[len(PREFIX):].split()
-                selected = set(pieces)
-                break
-        else:
-            profile = "legacy or unmanaged"
+        try:
+            with launcher.open(encoding="utf-8") as source:
+                for line in source:
+                    if line.startswith(PREFIX):
+                        words = line[len(PREFIX):].split()
+                        if words and words[0] in PROFILES and set(words[1:]).issubset(PIECES):
+                            return words[0], set(words[1:])
+                        break
+        except UnicodeError:
+            pass
+    return "legacy or unmanaged", set()
+
+
+def show_status(profile, selected, target, command):
     print("Installed profile:", profile)
     print("Enabled:", ", ".join(sorted(selected)) or "none")
     print("Disabled:", ", ".join(sorted(PIECES.keys() - selected)) or "none")
-    order = ["command", "codex-lead", "handover-guide", "notify", "pacing", "load-watch", "codex-view",
-             "security", "governor", "keeper", "helper-brief", "job-health", "known-fixes", "current-rules"]
-    next_piece = next((piece for piece in order if piece not in selected), None)
-    print("Recommended next:", next_piece or "controller only when multiple lanes integrate")
-    return 0
+    if profile == "legacy or unmanaged":
+        print("Recommended next: inspect the existing launcher before choosing an install profile.")
+        return
+    target = target or NEXT_PROFILE.get(profile, "solo")
+    missing = [name for name in BENEFITS if name in PROFILES[target] - selected]
+    print("Recommended next:", target if missing else "none")
+    for name in missing:
+        print(f"- {name}: {BENEFITS[name]}. Add: {command} --add {name}")
+
+
+def setup(installer, bin_dir, command, argv):
+    parser = argparse.ArgumentParser(prog=command, description="Inspect or extend the existing installation.",
+                                     allow_abbrev=False)
+    action = parser.add_mutually_exclusive_group(required=True)
+    action.add_argument("--status", action="store_true", help="read the selection and show missing pieces")
+    action.add_argument("--add", action="append", choices=PIECES, help="add a piece, keeping existing choices")
+    parser.add_argument("--profile", choices=PROFILES, help="compare status against this profile")
+    args = parser.parse_args(argv)
+    if args.status:
+        show_status(*installed(bin_dir), args.profile, command)
+        return 0
+    if args.profile:
+        parser.error("--profile selects a comparison for --status; --add keeps the installed profile")
+    # Serialize read-modify-write additions from independent agents using this checkout.
+    with open(installer, "rb") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        profile, selected = installed(bin_dir)
+        if profile == "legacy or unmanaged":
+            parser.error("resolve the existing launcher before adding a piece")
+        if set(args.add) <= selected:
+            print("Already enabled:", ", ".join(args.add))
+            return 0
+        if profile == "not installed":
+            profile = "core"
+        wanted = selected | set(args.add)
+        options = ["--profile", profile]
+        for name in sorted(wanted - PROFILES[profile]):
+            options.extend(["--with", name])
+        for name in sorted(PROFILES[profile] - wanted):
+            options.extend(["--without", name])
+        return subprocess.run([installer, *options], check=False).returncode
 
 
 def main():
@@ -87,4 +153,6 @@ def main():
 
 
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["setup"]:
+        sys.exit(setup(*sys.argv[2:5], sys.argv[5:]))
     main()

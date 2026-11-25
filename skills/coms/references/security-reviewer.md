@@ -32,3 +32,17 @@ stable holder and marker.
 The Controller integrates and lands. The owner grants consequential
 actions. A security verdict contributes independent evidence to those
 decisions.
+
+## When another window needs an independent read
+
+If you are coordinating a change to the permission fence, secret handling,
+session safety or keys, find an available reviewer with
+`coms who --role security-reviewer`. If the `security` piece is installed,
+use this guide to brief the reviewer on the exact revision and evidence.
+Choose an independent reviewer from another model family where available.
+
+Check guide availability with `coms setup --status`. If it is missing,
+offer `coms setup --add security` in one owner
+question when it would help. Add the piece only after the owner agrees.
+Arrange the required review through an eligible reviewer while the guide
+decision is pending. Continue unaffected work and follow the invocation checklist to skip this session's declines and outstanding offers.

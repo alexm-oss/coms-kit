@@ -29,3 +29,16 @@ at enrollment. Use your own stable holder and marker.
 COMS provides the decision log and messaging. The product cards are the
 Keeper's maintained records. A Keeper card records authority from its
 source and can never create new authority.
+
+## When another window needs product records
+
+If decisions or follow-ups now span several products, or an owner asks
+which actions a product still owes, use `coms who --role keeper` to find
+a record owner. If the `keeper` piece is installed, share this guide and
+send the exact decision topic and source timestamp. Use one sourced card
+per affected product for each decision and follow-up.
+
+Check guide availability with `coms setup --status`. If it is missing,
+offer `coms setup --add keeper` in one owner
+question when the record would help. Add the piece only after the owner
+agrees. Keep recording owner answers and follow the invocation checklist to skip this session's declines and outstanding offers.

@@ -49,3 +49,17 @@ and keep Command informed when decisions or priorities change.
    served review page, confirm it renders and check it shows the right
    batch and counts. Record unresolved results in the ledger for the next
    handoff.
+
+## When another window is coordinating several lanes
+
+If several writers regularly need one integration checkout and a shared
+test round, use `coms who --role controller` to find the integration owner.
+If the `controller` piece is installed, use this guide to brief that
+window with the base, revisions, tests and agreed landing scope. A named
+writer can continue preparing evidence while integration ownership is settled.
+
+Check guide availability with `coms setup --status`. If it is missing,
+offer `coms setup --add controller` in one owner
+question when the recurring integration work calls for it. Add the piece
+only after the owner agrees. Keep the current lease and approval rules in
+force. Follow the invocation checklist to skip this session's declines and outstanding offers.

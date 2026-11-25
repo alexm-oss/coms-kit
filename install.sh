@@ -14,7 +14,15 @@ SKILLS="${COMS_SKILLS_DIR:-$HOME/.claude/skills}"
 HOOKS="${COMS_HOOKS_DIR:-$HOME/.claude/hooks}"
 STATE="${COMS_STATE_DIR:-$HOME/.claude/coms}"
 
-cli_only=0 claude_hooks=0 force=0 status=0
+# Existing callers can put --profile before --status.
+for arg in "$@"; do
+  case "$arg" in
+    --status|--add)
+      exec python3 -I -B "$ROOT/coms/install_profiles.py" setup "$ROOT/install.sh" "$BIN" ./install.sh "$@" ;;
+  esac
+done
+
+cli_only=0 claude_hooks=0 force=0
 options=()
 export PYTHONDONTWRITEBYTECODE=1
 while [ "$#" -gt 0 ]; do
@@ -24,14 +32,13 @@ while [ "$#" -gt 0 ]; do
     --cli-only) cli_only=1 ;;
     --claude-hooks) claude_hooks=1 ;;
     --force) force=1 ;;
-    --status) status=1 ;;
     --profile|--with|--without)
       if [ "$#" -eq 0 ]; then echo "install.sh: $arg needs a value" >&2; exit 2; fi
       options+=("$arg" "$1")
       shift ;;
     -h|--help)
       sed -n '2,8p' "$0"
-      echo "Use --status to inspect a prior installation."
+      echo "Use --status [--profile NAME] for suggestions, or --add PIECE to keep existing choices."
       python3 "$ROOT/coms/install_profiles.py" --help
       exit 0 ;;
     *) echo "install.sh: unknown option $arg" >&2; exit 2 ;;
@@ -42,10 +49,6 @@ python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' 2>/dev
   || { echo "install.sh: coms needs python3 3.9 or newer on PATH" >&2; exit 1; }
 command -v git >/dev/null 2>&1 || { echo "install.sh: coms needs git" >&2; exit 1; }
 
-if [ "$status" = 1 ]; then
-  python3 -B -I -c 'import sys; sys.path.insert(0, sys.argv[1]); from install_profiles import status; status(sys.argv[2])' "$ROOT/coms" "$BIN"
-  exit 0
-fi
 selection=$(python3 "$ROOT/coms/install_profiles.py" ${options[@]+"${options[@]}"})
 if [ "$cli_only" = 1 ] && [ "$selection" != "core" ]; then
   echo "install.sh: --cli-only installs core. Use a profile for optional skill files." >&2
@@ -108,6 +111,8 @@ if [ "$state_is_new" = 1 ]; then
   : > "$STATE/.coms-kit"
   : > "$STATE/locks/coord.lock"
 fi
+launcher=$(mktemp "$BIN/.coms-launcher.XXXXXX")
+trap 'rm -f "$launcher"' EXIT
 # The kit path is written with printf %q, so a folder name holding $( ), backticks
 # or quotes stays a literal path and never runs as a command.
 {
@@ -117,10 +122,16 @@ fi
   printf '# coms-kit selection: %s\n' "$selection"
   printf 'export COMS_KIT_SELECTION=%q\n' "$selection"
   printf 'kit=%q\n' "$ROOT"
+  # An installed agent may be outside the checkout or use nondefault destinations.
+  # shellcheck disable=SC2016  # evaluated by the installed launcher
+  printf '%s\n' 'if [ "${1:-}" = setup ]; then' '  shift'
+  printf '  export COMS_BIN_DIR=%q COMS_SKILLS_DIR=%q COMS_HOOKS_DIR=%q COMS_STATE_DIR=%q\n' "$BIN" "$SKILLS" "$HOOKS" "$STATE"
+  # shellcheck disable=SC2016  # expanded by the installed launcher
+  printf '%s\n' '  exec python3 -I -B "$kit/coms/install_profiles.py" setup "$kit/install.sh" "$COMS_BIN_DIR" "coms setup" "$@"' 'fi'
   # shellcheck disable=SC2016  # literal on purpose: the launcher expands $kit and $@ when it runs
   printf '%s\n' 'exec python3 -c '"'"'import sys; kit = sys.argv.pop(1); sys.path[:] = [kit] + [p for p in sys.path if p != ""]; from coms.cli import main; sys.exit(main())'"'"' "$kit" "$@"'
-} > "$BIN/coms"
-chmod +x "$BIN/coms"
+} > "$launcher"
+chmod 755 "$launcher"
 
 if [ "$cli_only" = 0 ]; then
   python3 "$ROOT/coms/install_files.py" mkdir "$SKILLS"
@@ -143,6 +154,7 @@ elif ours "$HOOKS/helper-brief" "# coms-kit hook"; then
   python3 "$ROOT/coms/install_files.py" prune "$HOOKS"
 fi
 
+mv -f "$launcher" "$BIN/coms"
 echo "coms installed:"
 echo "  launcher: $BIN/coms"
 if [ "$cli_only" = 1 ]; then
