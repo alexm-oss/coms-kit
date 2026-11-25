@@ -139,9 +139,9 @@ class SetupSuggestionTest(unittest.TestCase):
             pieces.append(piece)
         return pieces
 
-    def test_installer_recommends_only_the_next_profiles_missing_components(self):
+    def test_installer_recommends_pair_on_core_and_next_profile_after_that(self):
         matrix = (
-            ("core", set(), "solo", SOLO),
+            ("core", set(), "pair", PAIR),
             ("solo", SOLO, "pair", PAIR - SOLO),
             ("pair", PAIR, "full-room", FULL - PAIR),
             ("full-room", FULL, "none", set()),
@@ -157,6 +157,36 @@ class SetupSuggestionTest(unittest.TestCase):
                 self.assertEqual(fields["recommended next"].split()[0].rstrip(":").lower(), next_profile)
                 self.assertEqual(set(self.suggestions(result, "./install.sh")), suggested)
                 self.assertEqual(before, self.snapshot())
+
+    def test_installed_skill_advertises_each_invocation_and_offers_pair_first(self):
+        self.install()
+        skill = (self.skill / "SKILL.md").read_text()
+        front = skill.split("---", 2)[1]
+        description = next(line for line in front.splitlines() if line.startswith("description:")).lower()
+        for phrase in ("/coms", "start coms", "set up coms", "setup coms", "install coms", "use coms"):
+            self.assertIn(f'"{phrase}"', description)
+        self.assertIn("any case", description)
+        self.assertIn("offer the printed pair question first", skill)
+        before = self.snapshot()
+        status = self.coms("setup", "--status").stdout
+        offer = next(line for line in status.splitlines() if line.startswith("Pair offer:"))
+        self.assertLess(status.index(offer), status.index("- command:"))
+        self.assertIn("recommended pair", offer)
+        self.assertIn("`./install.sh --profile pair`?", self.install("--status").stdout)
+        self.assertEqual(before, self.snapshot())
+        # Accept exactly the printed command from outside the checkout.
+        command = re.search(r"`(coms setup --pair)`", offer).group(1)
+        self.coms(*command.split()[1:])
+        fields = self.status()
+        self.assertEqual(fields["installed profile"], "pair")
+        self.assert_pieces(fields["enabled"], PAIR)
+        self.assertNotIn("Pair offer:", self.coms("setup", "--status").stdout)
+
+    def test_pair_acceptance_preserves_a_concurrent_custom_choice(self):
+        self.install("--profile", "core", "--with", "keeper")
+        self.assertNotIn("Pair offer:", self.coms("setup", "--status").stdout)
+        self.coms("setup", "--pair")
+        self.assert_pieces(self.status()["enabled"], PAIR | {"keeper"})
 
     def test_full_room_recommends_any_explicitly_omitted_default_without_controller(self):
         self.install("--profile", "full-room", "--without", "known-fixes", "--without", "notify")

@@ -1,6 +1,6 @@
 ---
 name: coms
-description: Use when several AI agents share this machine, or the user says /coms or "start coms", to take turns on risky local operations like a merge, a ship or a shared simulator, and to message each other.
+description: Use when the user says "/coms", "start coms", "set up coms", "setup coms", "install coms", or "use coms" (any case), or when agents on one machine need to coordinate operations and exchange messages.
 ---
 
 # coms: take your turn, don't clobber
@@ -23,9 +23,8 @@ Put both in front of EVERY coms command, reads included, because each shell call
 
     COMS_HOLDER=codex-login-7f3a COMS_SESSION_ID=codex-login-7f3a-s1 coms status
 
-The examples below show the bare command for short; add your two values when you run them.
-
-## On invocation ("start coms")
+## On invocation
+If the kit is downloaded but not installed, first offer `./install.sh --profile pair` from the checkout. Wait for a yes, then follow [Start here](../../docs/GOLDEN-SETUP.md).
 
 1. Enroll with one line on what you are about to do. It prints the room: who holds what, who is enrolled.
 
@@ -42,8 +41,10 @@ The examples below show the bare command for short; add your two values when you
    with their own hooks, husky or otherwise, get the mark only: coms leaves their hooks alone.
 
 4. Check `coms setup --status` (or `./install.sh --status` from the kit). For two model families, run `coms setup --status --profile pair`.
-   Read `coms decisions --current --json "setup-$COMS_HOLDER-"` first. Skip exact topics with answer `declined`.
-   Offer the remaining missing pieces once this session, one line each with the printed benefit and exact add command.
+   Read `coms decisions --current --json "setup-$COMS_HOLDER-"` first. Skip declined topics and pending offers.
+   On a core-only install, offer the printed pair question first, alone on one line. Wait for a yes before running its command.
+   Use `piece=pair` for a declined pair; skip its bundled offers this session. Skip the bundle if any member was already declined.
+   Otherwise offer the remaining missing pieces once this session, one line each with the printed benefit and exact add command.
    Ask one question about the piece relevant now. Wait for a yes before adding it. Leave unanswered offers pending.
    For a no, set `piece` to its name and run `coms decide "setup-$COMS_HOLDER-$piece" declined --quote '<exact words>'`.
    Record each piece if all are declined. Skip declined pieces for the rest of this session, including in role guides.

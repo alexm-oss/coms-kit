@@ -101,6 +101,10 @@ def show_status(profile, selected, target, command):
     if profile == "legacy or unmanaged":
         print("Recommended next: inspect the existing launcher before choosing an install profile.")
         return
+    if profile == "core" and not selected and target in (None, "pair"):
+        target = "pair"
+        opt_in = "coms setup --pair" if command == "coms setup" else "./install.sh --profile pair"
+        print(f"Pair offer: Coordinate a Claude and Codex window together. Set up the recommended pair with `{opt_in}`?")
     target = target or NEXT_PROFILE.get(profile, "solo")
     missing = [name for name in BENEFITS if name in PROFILES[target] - selected]
     print("Recommended next:", target if missing else "none")
@@ -114,25 +118,31 @@ def setup(installer, bin_dir, command, argv):
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--status", action="store_true", help="read the selection and show missing pieces")
     action.add_argument("--add", action="append", choices=PIECES, help="add a piece, keeping existing choices")
+    if command == "coms setup":
+        action.add_argument("--pair", action="store_true", help="enable the recommended two-window setup")
+    parser.set_defaults(pair=False)
     parser.add_argument("--profile", choices=PROFILES, help="compare status against this profile")
     args = parser.parse_args(argv)
     if args.status:
         show_status(*installed(bin_dir), args.profile, command)
         return 0
     if args.profile:
-        parser.error("--profile selects a comparison for --status; --add keeps the installed profile")
+        parser.error("--profile selects a comparison for --status")
     # Serialize read-modify-write additions from independent agents using this checkout.
     with open(installer, "rb") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         profile, selected = installed(bin_dir)
         if profile == "legacy or unmanaged":
             parser.error("resolve the existing launcher before adding a piece")
-        if set(args.add) <= selected:
-            print("Already enabled:", ", ".join(args.add))
+        additions = PAIR if args.pair else set(args.add)
+        target_profile = "core" if profile == "not installed" else profile
+        if args.pair and target_profile in ("core", "solo"):
+            target_profile = "pair"
+        if additions <= selected and target_profile == profile:
+            print("Already enabled:", ", ".join(sorted(additions)))
             return 0
-        if profile == "not installed":
-            profile = "core"
-        wanted = selected | set(args.add)
+        profile = target_profile
+        wanted = selected | additions
         options = ["--profile", profile]
         for name in sorted(wanted - PROFILES[profile]):
             options.extend(["--with", name])

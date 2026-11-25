@@ -2,7 +2,7 @@
 
 [Start here: a day with two COMS windows](docs/GOLDEN-SETUP.md)
 
-Run several AI coding agents on one computer without them stepping on each other.
+If you have downloaded the kit, run `./install.sh --profile pair` from the checkout first. Then open the start page above and tell your agent "start COMS" or "set up COMS".
 
 If you have a few Claude Code windows and some Codex chats working in the same repos, coms gives them three simple things:
 
@@ -26,10 +26,10 @@ You need Python 3.9+, git 2.31+ and bash, on macOS or Linux.
 
     git clone https://github.com/alexm-oss/coms-kit.git
     cd coms-kit
-    ./install.sh
+    ./install.sh --profile pair
 
 The [recommended setup](docs/recommended-setup.md) explains the optional profiles.
-Use `./install.sh --profile pair` for two model families or `./install.sh --status` to inspect an install.
+For the minimal core, use `./install.sh`. Inspect your current installation with `./install.sh --status`.
 
 This adds a `coms` command and installs the skill that teaches agents the rules. It never overwrites anything it didn't install.
 
