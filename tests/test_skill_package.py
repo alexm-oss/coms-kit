@@ -73,7 +73,13 @@ class SkillTextTest(unittest.TestCase):
         for name in ("operating-model.md", "handover.md", "claude-desktop.md"):
             self.assertIn("references/" + name, skill)
             self.assertTrue(os.path.isfile(os.path.join(REFS, name)), name)
-        self.assertEqual(sorted(os.listdir(REFS)), ["claude-desktop.md", "handover.md", "operating-model.md"])
+        guides = ("codex-lead.md", "command.md", "controller.md", "governor.md",
+                  "keeper.md", "protocol.md", "security-reviewer.md")
+        self.assertEqual(sorted(os.listdir(REFS)),
+                         sorted(("claude-desktop.md", "handover.md", "operating-model.md", *guides)))
+        model = read(os.path.join(REFS, "operating-model.md"))
+        for name in guides:
+            self.assertIn("](" + name + ")", model, name)
         self.assertIn("bin/README.md", skill)
         self.assertTrue(os.path.isfile(os.path.join(BIN, "README.md")))
 

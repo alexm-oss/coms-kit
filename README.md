@@ -60,6 +60,9 @@ Day to day, you mostly just watch `coms status`. The agents use the rest themsel
 - [`skills/coms/SKILL.md`](skills/coms/SKILL.md) is what agents read: the rules they follow.
 - [`docs/REFERENCE.md`](docs/REFERENCE.md) has every command, the Claude Code and Codex setup, how it works inside, its limits, upgrading and tests.
 
+- [Operating model](skills/coms/references/operating-model.md) introduces the six roles and their handoffs.
+- [Operator tools](skills/coms/bin/README.md) covers usage pacing, host load and scheduled job health.
+
 ## Remove
 
     ./uninstall.sh

@@ -106,3 +106,17 @@ The pacing tools accept values from your usage display or a trusted adapter.
 Pacing samples and the baseline are local files under `COMS_WATCH_DIR` by default. Each has a
 `--state` override. Use separate state files for independent meter profiles. The dashboard-specific
 usage writer is omitted. The examples above use direct usage values and a plain JSON input file.
+
+### Job health
+
+Run the installed skill's `bin/job-health.py --asset NAME`, using a launchd
+label on macOS or a systemd .timer unit on Linux. The default scope is the
+current user's jobs. Set `--system` for system jobs, or qualify individual macOS
+labels as system/LABEL, gui/UID/LABEL or user/UID/LABEL. Linux checks both the
+timer and its configured trigger unit. Repeat `--asset` or populate a copy of
+bin/job-watch.txt and pass `--watch-file FILE`. Schedule the same command under
+your usual scheduler to refresh broken-assets.json in the COMS state folder.
+A probe that cannot read the scheduler preserves any previous failure for that
+asset. Pass `--notify` to enable the adjacent notification hook after configuring its backend, or
+`--notify PATH` for an explicit hook path. Only a generic count is sent, when the
+failure list changes. The hook records a clear state without a success alert.

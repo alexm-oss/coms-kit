@@ -59,22 +59,29 @@ class ScrubTest(unittest.TestCase):
                     hits.append(f"{rel}: {match.group(0)}")
         self.assertEqual(hits, [], "possible private data in the kit:\n" + "\n".join(hits))
 
-    def test_docs_speak_of_the_human_and_name_no_private_roles(self):
+    def test_docs_speak_of_the_human_and_scope_role_terms_to_public_guides(self):
         pronoun = re.compile(r"\b(he|his|him)\b", re.I)
-        roles = re.compile(r"\b(Command|Controller|Governor|Codex lead|seats?)\b")
+        roles = re.compile(r"\b(Command|Controller|Governor|Codex lead)\b")
+        private_roles = re.compile(r"\bseats?\b")
+        role_guides = {
+            os.path.join("skills", "coms", "references", name + ".md")
+            for name in (
+                "codex-lead", "command", "controller", "governor", "keeper",
+                "operating-model", "protocol", "security-reviewer",
+            )
+        }
         hits = []
         for rel, text in texts():
             if not rel.endswith(".md"):
                 continue
             for number, line in enumerate(text.splitlines(), 1):
-                if pronoun.search(line):
+                if pronoun.search(line) or private_roles.search(line):
                     hits.append(f"{rel}:{number}: {line.strip()}")
-                is_role_index = rel == os.path.join("skills", "coms", "references", "operating-model.md")
                 is_handover_heading = (
                     rel == os.path.join("skills", "coms", "references", "handover.md")
                     and line == "## New Codex lead checklist"
                 )
-                if roles.search(line) and not (is_role_index or is_handover_heading):
+                if roles.search(line) and not (rel in role_guides or is_handover_heading):
                     hits.append(f"{rel}:{number}: {line.strip()}")
         self.assertEqual(hits, [])
 
