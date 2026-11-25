@@ -226,4 +226,38 @@ It runs in an isolated home and state folder, checks syntax, runs shellcheck,
 ruff and gitleaks when they are installed (and says UNSUPPORTED when they are
 not), then the standard library unittest suite.
 
-MIT licence, by Alex Maxey.
+See LICENSE for the MIT licence.
+
+## Optional helper briefs
+
+The optional `hooks/claude/helper-brief` command reads a Claude Code PreToolUse
+event on stdin. Point a hook at its absolute path inside the clone to enable it.
+It accepts four nonempty labeled lines in the helper prompt: Task, Model,
+Effort and Time budget. Structured tool input fields also count. An incomplete
+brief exits 2 and names the missing fields. Other tools pass through.
+
+    {"matcher":"Agent|Task|NewSession","hooks":[{"type":"command","command":"'/path/to/kit/hooks/claude/helper-brief'"}]}
+
+Append the group to the PreToolUse list in your own Claude settings. For a
+different new-session tool, include its exact name in the matcher and pass
+`--tool NAME` for each tool the command should check. Use
+`--labels Work Engine Depth Minutes` to change the four prompt headings.
+
+## Optional notifications
+
+The installed skill's `bin/notify` takes `--source`, `--state` and
+`--message`. Leave COMS_NOTIFY_BACKEND unset for local-only operation. To
+enable delivery, set it to one of the following values.
+
+| Backend | Configuration | Delivery |
+|---|---|---|
+| telegram | TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in the environment | One HTTPS request to the bot API |
+| ntfy | COMS_NTFY_URL containing the full HTTPS topic URL | Plain text POST |
+| command | COMS_NOTIFY_COMMAND containing one absolute executable path | Text on standard input |
+
+Pass only a shareable message. Use a stable source and a state that changes
+when the problem changes. Repeated states are silent. Send the state `ok` on
+recovery to rearm the next alert without sending a success message. Attempts
+are recorded in COMS_NOTIFY_STATE_DIR (default ~/.local/state/coms/notify).
+If delivery fails or its response is lost, check the destination before
+rearming with `ok`. The command never follows redirects.

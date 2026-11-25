@@ -44,11 +44,12 @@ The second one waits, then prints "my turn" the moment the first finishes. `coms
 
 ## The few commands you'll actually use
 
-| Command | What it does |
+| Run | What it does |
 |---|---|
 | `coms do main -- <command>` | Wait your turn, run the command, let go |
 | `coms status` | Who is running, and who holds what |
 | `coms msg <agent> '<text>'` | Leave another agent a message |
+| `coms inbox --consume` | Read new mail and mark it delivered |
 | `coms decide <topic> '<answer>'` | Record your answer so no agent asks again |
 | `coms decisions <keyword>` | Look up a past answer |
 

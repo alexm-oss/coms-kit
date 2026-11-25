@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Remove what install.sh added: the launcher, the skill and the optional Claude
-# Code hooks. Anything coms-kit did not install is left alone. The coms state
+# Code hooks. Anything coms-kit did not install is left alone. Populated state
 # (leases, room, inboxes, decision log) stays unless you pass --purge, which removes it only
 # if install.sh created it.
 #
@@ -36,7 +36,7 @@ echo "coms uninstall:"
 remove_file "$BIN/coms" "# coms-kit launcher"
 
 if [ -d "$SKILLS/coms" ] && [ ! -L "$SKILLS/coms" ] && [ -f "$SKILLS/coms/.coms-kit" ]; then
-  rm -rf "$SKILLS/coms"
+  python3 "$ROOT/coms/install_files.py" remove-skill "$ROOT/skills/coms" "$SKILLS/coms"
   echo "  removed $SKILLS/coms"
 elif [ -e "$SKILLS/coms" ] || [ -L "$SKILLS/coms" ]; then
   echo "  left alone (not from coms-kit): $SKILLS/coms"
@@ -57,9 +57,22 @@ if [ "$purge" = 1 ]; then
   elif [ -e "$STATE" ] || [ -L "$STATE" ]; then
     echo "  left alone (not created by coms-kit): $STATE"
   fi
-elif [ -d "$STATE" ]; then
-  echo "  kept $STATE (pass --purge to remove it)"
+elif [ ! -L "$STATE" ] && [ -f "$STATE/.coms-kit" ]; then
+  # A status query takes an empty coordination lock. Keep all populated stores.
+  entries=$(find "$STATE" -mindepth 1 ! -path "$STATE/.coms-kit" ! -path "$STATE/.coms-kit-directory" \
+    ! -path "$STATE/locks" ! -path "$STATE/locks/coord.lock" ! -path "$STATE/threads" -print)
+  if [ -z "$entries" ] && [ -d "$STATE/locks" ] && [ ! -L "$STATE/locks" ] && \
+     [ -d "$STATE/threads" ] && [ ! -L "$STATE/threads" ] && \
+     [ ! -L "$STATE/locks/coord.lock" ] && [ ! -s "$STATE/locks/coord.lock" ]; then
+    rm -f "$STATE/.coms-kit" "$STATE/locks/coord.lock"
+    rmdir "$STATE/locks" "$STATE/threads"
+    python3 "$ROOT/coms/install_files.py" prune "$STATE"
+  else
+    echo "  kept $STATE (pass --purge to remove it)"
+  fi
 fi
+
+python3 "$ROOT/coms/install_files.py" prune "$BIN" "$SKILLS" "$HOOKS" "$(dirname "$STATE")"
 
 if [ "$hooks_removed" = 1 ]; then
   echo "Take the coms-context and coms-inbox-stop-gate.sh entries out of ~/.claude/settings.json too."

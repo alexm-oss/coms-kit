@@ -65,6 +65,7 @@ def scanned_files():
     """The skill, the tool README and runbook, and the text the tool prints."""
     paths = [
         os.path.join(REPO_ROOT, "README.md"),
+        os.path.join(REPO_ROOT, "docs", "REFERENCE.md"),
         os.path.join(SKILL, "SKILL.md"),
     ]
     for pattern in (

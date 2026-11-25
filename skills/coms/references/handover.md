@@ -1,85 +1,160 @@
-# Handing a window over to another account or window
+# Handing over a COMS window
 
-Use this when a window that others message (an orchestrator, say) has to move: to another account,
-another app, or a fresh chat. The commands keep its mail and open work, and make sure nothing is lost
-or delivered twice. coms does not sign in, authenticate accounts, merge, push or deploy; signing in is
-the human's job.
+Use a handover when a replacement window takes over work other agents send to a
+leaving window. The holding window keeps approved work moving while the
+successor gets ready. Use the same local COMS store throughout. The human
+handles any sign-in. Existing grants and scope still apply.
 
-Three parties take part: the **leaving** window, a **holding** window that covers while the switch
-happens, and the **new** window that takes over.
+The examples use shell variables for paths and holders you supply. Pin your
+own `COMS_HOLDER` and `COMS_SESSION_ID` on every COMS call, including reads.
 
-## Before you start
+## No replay, rotate instead
 
-- Every window pins its own `COMS_HOLDER` and `COMS_SESSION_ID` on every command. The new window uses a
-  NEW holder id and session marker; it never takes over the old one's id.
-- Notes go to `COMS_HANDOVER_DIR` (default `~/.local/share/coms/handovers`) as private files (mode 600
-  in a mode 700 folder). The coms state stays in `COMS_DIR` (default `~/.claude/coms`).
-- Open loops are a JSON file with these lists: `open_work`, `owner_questions`, `routines`,
-  `pending_handoffs`, `evidence`. Leave credentials, cookies, tokens and private values out; obvious
-  credentials are refused, but no check recognises every secret.
-- Notes and receipts are capped at 1 MiB. Large inboxes stay in their files; notes carry byte ranges
-  and hashes that point at the originals.
+Use `coms handover relay "$note"` from the holding window. It sends a pointer
+to each new range of originals, the open loops, any supplied held delta and a
+reference to `coms decisions --current`. Read the pinned bytes from the source
+path, check the `sha256` digest and use the original sender and timestamp. An
+inbox full of copied history obscures live requests and discards the useful
+distinction between a new message and a recovered original. Relay progress is
+tracked separately for each destination.
+
+To shrink a large live inbox while keeping the same holder, rotate it outside
+any active handover. Use the following from the coordinated repository, with
+the appropriate holder and session set for the operator.
+
+    coms do main -- coms inbox-rotate "$holder" --dry-run
+    coms do main -- coms inbox-rotate "$holder"
+
+Rotation archives the full inbox under `COMS_DIR/inbox-archive`, carries the
+undelivered bytes forward and rebases the delivery checkpoint. It keeps the
+originals available by path and byte range. Settle or record pending
+dependencies before rotation when handled state is behind delivery. Keep the
+archive and its rotation record together. For an interruption, use
+`coms do main -- coms inbox-rotate "$holder" --recover` and inspect its result.
+Rotation preserves a holder's route. A handover creates a new holder's route.
+
+## Durable state and identity
+
+- Use a private, persistent `COMS_HANDOVER_DIR` on the local machine. Its default
+  is `~/.local/share/coms/handovers`. Notes are atomically written mode 600
+  files in a mode 700 directory. Use regular files and non-symlinked paths. The
+  separate `COMS_DIR` defaults to `~/.claude/coms`.
+- Use a unique, stable holder and session marker for each window.
+  `COMS_SESSION_ID` overrides an inherited native marker. A foreign or retired
+  holder cannot be taken over. The binding survives the four-hour board
+  listing timeout. Markers prevent ordinary routing errors among cooperative
+  processes. They are copyable and supply no account or sender authentication.
+- A window with its own old unmarked record can enroll with `--adopt-legacy`.
+  For its own malformed record, `--repair-enrollment` preserves a private
+  backup. Resolve old routes and review any legacy delivery positions before
+  assuming earlier work was handled.
+- Keep open loops and the note within their 1 MiB limits. Larger originals
+  stay in place with byte and hash pointers. If preparation reports a size
+  problem, reduce summaries or move evidence into named files while preserving
+  unresolved originals and dependencies.
 
 ## Leaving side checklist
 
-1. The holding window enrolls first with its own holder and marker.
-2. Finish or stop only your own leased operations at a safe point. Never force-unlock another holder.
-3. Write the open-loops file.
-4. Save a receipt of what you have handled, handle each message in it or record what it is waiting on
-   in the open-loops file, then acknowledge it:
+1. Identify a holding window by literal holder and scope. It enrolls with its
+   own role and marker before preparation.
+2. Finish your leased operation at its safe boundary. Another holder's lease
+   belongs to that holder. Save a private JSON file with five lists named
+   `open_work`, `owner_questions`, `routines`, `pending_handoffs` and
+   `evidence`. Record the bounds of grants, full revisions, paths, original
+   timestamps and evidence. For routines, include their owners, schedules,
+   saved checkpoints, and the work their processes are doing. Omit credentials,
+   cookies, tokens and sensitive values.
+3. Optionally record handled work before taking the note. In a private
+   directory with `umask 077`, save a receipt. Read each original and handle it
+   or record its exact pending dependency in the loops file before acknowledging.
 
-       COMS_HOLDER=leaving-holder COMS_SESSION_ID=leaving-session coms inbox --peek --receipt > /private/path/receipt.json
-       COMS_HOLDER=leaving-holder COMS_SESSION_ID=leaving-session coms checkpoint-ack /private/path/receipt.json --pending /private/path/loops.json
+       coms inbox --peek --receipt > "$receipt"
+       coms checkpoint-ack "$receipt" --pending "$loops"
 
-   Use `umask 077` and a private folder. Never acknowledge messages you have not read just to shrink a note.
-5. Write the note. It records status, leases, recent messages, current decisions and unread mail, then
-   releases only your idle leases. A running lease refuses and leaves a prepared note; retry with a new
-   `--id` after the operation ends.
+   Without that acknowledgement, recovery conservatively includes unhandled
+   originals and may include work you already completed.
+4. Prepare the note. Supported roles are orchestrator, controller, codex-lead
+   and governor. Use the role enrolled by the leaving window.
 
-       bin/handover-note --to <holding-holder> --role <role> --open-loops /private/path/loops.json
+       coms handover note --to "$holding_holder" --role "$role" --open-loops "$loops"
 
-   `<role>` is one of orchestrator, controller, codex-lead or governor (see `operating-model.md`).
-6. Send the note's path to the holding window. Keep the old inbox and checkpoints for late mail.
-
-Until the note is accepted, the leaving window can call it off: `coms handover cancel <note>`.
+   The [handover-note helper](../bin/README.md) wraps the same command. The note
+   saves lanes, leases, decisions and both delivery and handled state. A live
+   owned lease leaves preparation incomplete. After the operation ends, use
+   a fresh transition ID and retain the first note for diagnosis.
+5. Share the note path with the holding window and preserve the old inbox
+   through retirement. The leaving window can call
+   `coms handover cancel "$note"` for its own prepared or holding transition
+   before acceptance.
 
 ## Holding side checklist
 
-1. Keep approved work moving and queue anything that needs the human. Holding grants no extra powers.
-2. Pull the old window's unread mail into your own inbox: `coms handover relay <note>`.
-   The relay sends one pointer card (inbox path, byte range, sha256, count), the open loops and your
-   delta once each; it never re-sends history as mail. `--replay` (one card per original) is only for
-   a small, deliberate recovery.
-3. Keep a delta open-loops file of what changed while you held.
-4. When the new window has enrolled, relay to it:
-   `coms handover relay <note> --to <new-holder> --updates /private/path/delta.json`.
-5. Keep relaying late mail for the old holder until every sender uses the new one.
+1. Continue approved lanes. Queue questions that actually need the human and
+   use the decision log for settled questions. Record a private delta file
+   with the same five lists as the original loops file.
+2. Recover the old window's mail to your own route with
+   `coms handover relay "$note"`. Read the original range and act or record the
+   dependency.
+3. Once the replacement has enrolled, relay to its exact new holder.
 
-## New window checklist
+       coms handover relay "$note" --to "$new_holder" --updates "$delta"
 
-1. Enroll with a NEW holder and session marker and the same `--role`. Read the note, the current
-   decisions (`coms decisions --current`) and the relayed delta.
-2. A new inbox starts at byte zero. Never copy the old inbox's offset. Read with `coms inbox --consume`.
-3. Restart watches and routines from saved checkpoints, after checking what is already running, so
-   nothing is duplicated.
-4. Send yourself one real message at the new holder, see it delivered and handled, then accept:
-   `coms handover accept <note>` (`--confirm-ready` optional). This is your own statement; coms cannot
-   check a sign-in or an app wake.
+   Keep later messages distinct. If delivery was interrupted, reconcile using
+   the exact path, byte range and digest. Two messages about the same lane can
+   carry different instructions.
+4. Check sender routes and relay late mail after acceptance. Keep holding
+   until the new route is in use and all late originals are recovered.
 
-## Retiring the old holder
+## New Claude window checklist
 
-Only the holding window retires it, after acceptance, with no live old lease and no unreconciled late
-mail: `coms handover retire <note> --routes-confirmed`. The old id stays retired; later sends to it
-refuse and name the replacement. Files are kept.
+1. Enroll a new holder and marker with the leaving window's role. Review the
+   handover note, current decisions, held delta and integration ledger.
+2. Read pointer ranges with their original sender and time. Restore routines
+   from saved checkpoints and check existing processes before starting a
+   replacement watch. The new inbox starts at byte zero. An old offset is
+   valid only for its original inbox.
+3. Have a peer send an actionable test card to the replacement route. Observe
+   it in the correct inbox and handle it. If using a client-provided watch or
+   monitor, prove that path actually surfaced the card. Confirm the routes
+   with peers and accept with `coms handover accept "$note"`.
 
-## Inbox checkpoints in short
+## New Codex lead checklist
 
-- `coms inbox --consume` prints complete unread lines and then advances this holder's checkpoint (byte
-  offset, line count, prefix hash in `COMS_DIR/checkpoints`). `--peek` leaves it alone, and piped
-  output peeks unless you say `--consume`. `coms inbox --all` reads the whole history.
-- A changed, truncated or corrupt inbox refuses instead of skipping mail. After reconciling the
-  originals, `coms inbox --reset-checkpoint` only when replay is the intended recovery.
-- Delivery is not handling. `checkpoint-ack` records what was handled and what is still pending.
-- `coms inbox-rotate <holder>` archives a large inbox to `COMS_DIR/inbox-archive` (never deleted) and
-  restarts the live file at the delivery checkpoint without skipping undelivered mail. Run it under the
-  main lease.
+1. Enroll a new holder and marker with role `codex-lead`. Read current
+   instructions, the note, the decision log, the held delta and the integration
+   ledger. Recover lane grants, current worktrees, routine ownership, results
+   and pending handoffs from the named evidence.
+2. Restore each inbox from its own checkpoint. Keep pending work durable and
+   use `coms inbox --consume` for the replacement inbox. Set up an inbox read
+   routine where the client supports one, or use bounded reads and checkpoints
+   during work. Keep quiet while the state is unchanged.
+3. Verify any configured watcher with an actionable card sent to the new
+   holder. Handle the card and preserve its evidence. Confirm the replacement
+   route with the holding window and affected peers, then accept with
+   `coms handover accept "$note"`.
+
+The accept command checks enrollment and the relay. An observed card verifies
+the route you tested. A sign-in, app wake, or ongoing delivery needs its own
+observation if it matters to the handover.
+
+## Checkpoints and retirement
+
+- `coms inbox --consume` advances the physical delivery checkpoint after
+  successful output. It records the offset, line count and prefix hash in
+  `COMS_DIR/checkpoints`. `coms inbox --peek` and `coms inbox --all` leave
+  delivery unchanged. Redirected output defaults to peek. A partial trailing
+  line remains unread until complete.
+- `coms inbox --peek --receipt` starts from handled state, even if a watch
+  already delivered those messages. `coms checkpoint-ack` validates the exact
+  range and records the handled boundary and pending state in
+  `COMS_DIR/handled`. An earlier receipt cannot acknowledge later mail.
+- Investigate malformed rows or a changed prefix using the preserved original
+  bytes. Ordinary delivery can warn and continue. Exact-range handover and
+  handled operations need a valid source range. Never infer handling from a
+  timestamp, a delivery mark or a resync warning.
+- The holding window retires the old holder after acceptance, route
+  confirmation, release of old live leases and reconciliation of late mail.
+  Run `coms handover retire "$note" --routes-confirmed`. If late bytes or a
+  live lease prevent retirement, reconcile them and retry. COMS keeps the
+  old files and directs later senders to the replacement. Stop the redundant
+  task-owned routines after the replacement proves it can receive mail.

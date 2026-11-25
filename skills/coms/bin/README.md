@@ -71,3 +71,38 @@ bounded wait without these scripts use:
 
 Markers are cooperative routing checks, never authentication. On macOS, use resolved temporary paths
 such as /private/tmp for scratch stores; symlinked state paths refuse.
+## Pacing and host checks
+
+Run these optional tools directly from the installed skill's `bin` directory.
+The pacing tools accept values from your usage display or a trusted adapter.
+
+- `./pace.py 61 '2044-01-01T12:30:00Z'` reads a Claude five-hour percent used and its reset time.
+  Supply the current reset on each call so a new window discards the old rate samples. A later call
+  can omit the reset to reuse the recorded one. The default target is 95 percent and can be set with
+  `--target`. LOWER and RAISE suggest dropping or adding one lane level. HOLD keeps the current width.
+  At 98 percent while the window is still open, HANDOVER prints the path to
+  [the handover guide](../references/handover.md).
+- `./codex-pace-watch.sh --usage-file ./weekly-meter.json --once` reads a JSON object such as
+  `{"used_percent": 33.5, "resets_at": "2044-01-01T12:30:00Z"}`. Use the **weekly** percentage from
+  your usage display and its renewal time, either as timezone-aware ISO time or Unix seconds.
+  Set `CODEX_WEEKLY_USAGE_FILE` to supply the file every time or use `--usage-file - --once` for stdin.
+  Without `--once` it polls for new samples and prints changes to over-pace, used-plan and expired
+  states, plus a new-window event. The first reading anchors a line, and a fresh renewal resets the
+  baseline. Set `--rate` in percentage points per hour and `--over-by` in points, for example based on
+  the amount of allowance and time remaining. It sends no messages and takes no spending actions.
+- `./load-watch.sh --once` shows one-minute load and optional thermal data. The regular watch exits
+  with a line once strain persists for `STRAIN_MINUTES` (default 10). On Linux it reads `/proc/loadavg`
+  and the hottest readable thermal zone in degrees Celsius, with thermal strain at 85 C by default.
+  On macOS it reads `vm.loadavg` and optionally thermal pressure, with strain at level 2 by default.
+  If thermal data is unavailable, load still works. Use `--samples FILE` with rows like `17.5 -` to
+  exercise the threshold with synthetic load and no thermal reading. `--help` lists the thresholds.
+- `./codex-now.py` summarizes the newest rollout, or pass literal ID fragments to select rollouts.
+  `./codex-fleet.py 20` shows activity within a 20-minute lookback. Both read Codex app files and
+  may break on Codex updates. They read rollout metadata under `CODEX_HOME` (default `~/.codex`).
+  They print age, turn state and recognized model settings and omit transcript text, tool arguments,
+  titles, paths and full identifiers. `unknown` means the relevant metadata was missing,
+  unrecognized, or outside the bounded file read. Activity reflects writes observed on disk.
+
+Pacing samples and the baseline are local files under `COMS_WATCH_DIR` by default. Each has a
+`--state` override. Use separate state files for independent meter profiles. The dashboard-specific
+usage writer is omitted. The examples above use direct usage values and a plain JSON input file.

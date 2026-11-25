@@ -71,11 +71,13 @@ fi
 
 state_is_new=0
 [ -e "$STATE" ] || state_is_new=1
-mkdir -p "$BIN" "$STATE/locks" "$STATE/threads"
+python3 "$ROOT/coms/install_files.py" mkdir "$BIN" "$STATE"
+mkdir -p "$STATE/locks" "$STATE/threads"
 # Mark the state folder only when this install created it: --purge deletes
 # only a marked folder, never one that was already there.
 if [ "$state_is_new" = 1 ]; then
   : > "$STATE/.coms-kit"
+  : > "$STATE/locks/coord.lock"
 fi
 # The kit path is written with printf %q, so a folder name holding $( ), backticks
 # or quotes stays a literal path and never runs as a command.
@@ -90,16 +92,12 @@ fi
 chmod +x "$BIN/coms"
 
 if [ "$cli_only" = 0 ]; then
-  mkdir -p "$SKILLS"
-  if [ -d "$SKILLS/coms" ] && [ ! -L "$SKILLS/coms" ] && [ -f "$SKILLS/coms/.coms-kit" ]; then
-    rm -rf "$SKILLS/coms"
-  fi
-  cp -R "$ROOT/skills/coms" "$SKILLS/coms"
-  : > "$SKILLS/coms/.coms-kit"
+  python3 "$ROOT/coms/install_files.py" mkdir "$SKILLS"
+  python3 "$ROOT/coms/install_files.py" copy-skill "$ROOT/skills/coms" "$SKILLS/coms"
 fi
 
 if [ "$claude_hooks" = 1 ]; then
-  mkdir -p "$HOOKS"
+  python3 "$ROOT/coms/install_files.py" mkdir "$HOOKS"
   cp "$ROOT/hooks/claude/coms-context" "$ROOT/hooks/claude/coms-inbox-stop-gate.sh" "$HOOKS/"
   chmod +x "$HOOKS/coms-context" "$HOOKS/coms-inbox-stop-gate.sh"
 fi

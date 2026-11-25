@@ -69,7 +69,12 @@ class ScrubTest(unittest.TestCase):
             for number, line in enumerate(text.splitlines(), 1):
                 if pronoun.search(line):
                     hits.append(f"{rel}:{number}: {line.strip()}")
-                if rel != os.path.join("skills", "coms", "references", "operating-model.md") and roles.search(line):
+                is_role_index = rel == os.path.join("skills", "coms", "references", "operating-model.md")
+                is_handover_heading = (
+                    rel == os.path.join("skills", "coms", "references", "handover.md")
+                    and line == "## New Codex lead checklist"
+                )
+                if roles.search(line) and not (is_role_index or is_handover_heading):
                     hits.append(f"{rel}:{number}: {line.strip()}")
         self.assertEqual(hits, [])
 

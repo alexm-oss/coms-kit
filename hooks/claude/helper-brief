@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+"""Opt-in PreToolUse check for helper and new-session briefs."""
+import argparse
+import json
+import sys
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--tool", action="append", help="exact helper tool name (repeatable)")
+    parser.add_argument("--labels", nargs=4, default=["Task", "Model", "Effort", "Time budget"],
+                        metavar=("TASK", "MODEL", "EFFORT", "BUDGET"), help="four prompt field labels")
+    args = parser.parse_args()
+    try:
+        event = json.load(sys.stdin)
+        if not isinstance(event, dict):
+            raise ValueError
+        if event.get("tool_name") not in (args.tool or ("Agent", "Task", "NewSession")):
+            return 0
+        values = event.get("tool_input")
+        if not isinstance(values, dict):
+            raise ValueError
+        brief = next((values[k] for k in ("prompt", "message", "input")
+                      if isinstance(values.get(k), str) and values[k].strip()), "")
+        fields = {}
+        for line in brief.splitlines():
+            key, sep, value = line.partition(":")
+            if sep and value.strip():
+                fields[key.strip().casefold()] = value.strip()
+        missing = []
+        for label, key in zip(args.labels, ("task", "model", "effort", "time_budget")):
+            value = values.get(key)
+            if not (isinstance(value, str) and value.strip() or fields.get(label.casefold())):
+                missing.append(label)
+        if missing:
+            print("Add brief fields: " + ", ".join(missing), file=sys.stderr)
+            return 2
+    except (ValueError, TypeError):
+        print("Expected a tool event with an input object", file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

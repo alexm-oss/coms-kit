@@ -151,6 +151,20 @@ class KitInstallTest(unittest.TestCase):
         run = self.launch("status", "--json")
         self.assertEqual(run.returncode, 0, run.stderr)
 
+    def test_plain_uninstall_after_status_leaves_an_empty_home(self):
+        self.assertEqual(self.sh(INSTALL).returncode, 0)
+        self.assertEqual(self.launch("status").returncode, 0)
+        self.assertEqual(self.sh(UNINSTALL).returncode, 0)
+        self.assertEqual(os.listdir(self.home), [])
+
+    def test_local_skill_edits_and_foreign_skill_files_survive(self):
+        self.assertEqual(self.sh(INSTALL).returncode, 0)
+        for name in ("SKILL.md", "my-note.txt"):
+            with open(os.path.join(self.skill, name), "w") as out:
+                out.write("local notes")
+        self.assertEqual(self.sh(UNINSTALL).returncode, 0)
+        self.assertEqual(sorted(os.listdir(self.skill)), ["SKILL.md", "my-note.txt"])
+
     def test_uninstall_purge_leaves_home_as_it_was(self):
         before = files_under(self.home)
         self.assertEqual(self.sh(INSTALL, "--claude-hooks").returncode, 0)
@@ -161,6 +175,7 @@ class KitInstallTest(unittest.TestCase):
 
     def test_uninstall_keeps_state_and_foreign_files_by_default(self):
         self.assertEqual(self.sh(INSTALL).returncode, 0)
+        self.assertEqual(self.launch("enroll", "--intent", "keep active state").returncode, 0)
         os.makedirs(self.hooks, exist_ok=True)
         foreign = os.path.join(self.hooks, "coms-context")
         with open(foreign, "w") as fh:
