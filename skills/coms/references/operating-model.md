@@ -1,8 +1,6 @@
 # An optional operating model for several agents
 
-Use these roles when agents share a repository or test resources on one
-machine. Small setups can combine roles. Start with one orchestrator and the
-workers it coordinates.
+Start with one coordinator and its workers. Combine roles when sharing a local repository or test rig.
 
 ## Safe defaults
 
@@ -19,8 +17,7 @@ workers it coordinates.
 
 ## Roles
 
-Enroll with `coms enroll --role <role> --intent '<one-line intent>'` using
-your own stable holder and session marker. A role is a label on the board.
+Enroll with `coms enroll --role <role> --intent '<one-line intent>'` using your stable holder and session marker. Roles label the board.
 
 | Guide | Role label | Responsibility |
 | --- | --- | --- |
@@ -39,10 +36,8 @@ have the same role. The `coms handover note` role options are
 
 ## Briefs and reports
 
-Start each lane with Bet, Outcome, Proof of done and Appetite. Follow with
-base, scope, exact checks, and who owns the work. Fill missing headers from
-the assigned scope. The [protocol](protocol.md) explains why these four
-lines matter and shows the full template.
+Start each lane with Bet, Outcome, Proof of done and Appetite, then name the base, scope, checks and writer.
+Use the assigned scope to fill missing headers. The [protocol](protocol.md) gives the full template and reasons.
 
 - Five lines or fewer, outcome first, in plain words. Include the check,
   result and original evidence path for the proof of done.
@@ -53,10 +48,8 @@ lines matter and shows the full template.
 
 ## When a piece helps
 
-Use the installed skill's `bin` and `references` directories. For an optional
-piece that is missing, offer `coms setup --add PIECE` with the named piece
-and the reason it fits. Add one accepted piece without dropping prior choices.
-Internal modules run through their public commands.
+Use the installed skill's `bin` and `references` directories. Invoke internal modules through their public commands.
+If a piece is missing, explain the benefit and offer `coms setup --add PIECE`. Wait for a yes and respect this session's declines.
 
 | When | Installed tool or guide | Optional piece |
 | --- | --- | --- |
