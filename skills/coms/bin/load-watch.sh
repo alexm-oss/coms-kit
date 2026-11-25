@@ -49,7 +49,8 @@ LOAD_LIMIT=${LOAD_LIMIT:-16}
 THERMAL_LIMIT=${THERMAL_LIMIT:-$default_thermal}
 STRAIN_MINUTES=${STRAIN_MINUTES:-10}
 INTERVAL=${INTERVAL:-60}
-if ! [[ $LOAD_LIMIT =~ ^[0-9]{1,6}(\.[0-9]{1,4})?$ && $THERMAL_LIMIT =~ ^[0-9]{1,4}(\.[0-9]{1,4})?$         && $STRAIN_MINUTES =~ ^[0-9]{1,4}$ && $INTERVAL =~ ^[0-9]{1,4}$ ]]; then
+if ! [[ $LOAD_LIMIT =~ ^[0-9]{1,6}(\.[0-9]{1,4})?$ && $THERMAL_LIMIT =~ ^[0-9]{1,4}(\.[0-9]{1,4})?$\
+        && $STRAIN_MINUTES =~ ^[0-9]{1,4}$ && $INTERVAL =~ ^[0-9]{1,4}$ ]]; then
   printf '%s\n' 'load-watch.sh: invalid numeric limit or interval' >&2
   exit 2
 fi
@@ -89,12 +90,12 @@ native_sample() {
 }
 
 verdict() {
-  awk -v load="$1" -v thermal="$2" -v max_load="$LOAD_LIMIT" -v max_thermal="$THERMAL_LIMIT" '
+  awk -v load_value="$1" -v thermal="$2" -v max_load="$LOAD_LIMIT" -v max_thermal="$THERMAL_LIMIT" '
     BEGIN {
       numeric = "^-?[0-9]+([.][0-9]+)?$"
-      have_load = load ~ numeric && load + 0 >= 0
+      have_load = load_value ~ numeric && load_value + 0 >= 0
       have_thermal = thermal ~ numeric
-      if ((have_load && load + 0 > max_load + 0) || (have_thermal && thermal + 0 >= max_thermal + 0))
+      if ((have_load && load_value + 0 > max_load + 0) || (have_thermal && thermal + 0 >= max_thermal + 0))
         print "STRAIN"
       else if (have_load)
         print "CLEAR"
@@ -116,7 +117,8 @@ while :; do
     if ! read -r load thermal extra <&3 && [ -z "$load" ]; then
       break
     fi
-    if [ -z "$thermal" ] || [ -n "$extra" ] ||        ! [[ $load =~ ^(-|[0-9]{1,8}(\.[0-9]{1,6})?)$ && $thermal =~ ^(-|-?[0-9]{1,8}(\.[0-9]{1,6})?)$ ]]; then
+    if [ -z "$thermal" ] || [ -n "$extra" ] || \
+       ! [[ $load =~ ^(-|[0-9]{1,8}(\.[0-9]{1,6})?)$ && $thermal =~ ^(-|-?[0-9]{1,8}(\.[0-9]{1,6})?)$ ]]; then
       printf '%s\n' 'load-watch.sh: invalid synthetic sample' >&2
       exit 2
     fi

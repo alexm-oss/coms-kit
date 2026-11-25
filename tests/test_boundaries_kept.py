@@ -65,7 +65,8 @@ class BoundariesKeptTest(Sandbox):
     def test_owner_ask_expiry_and_newer_ask_keep_reasking_available(self):
         base = self.home / 'asks'
         queue, decisions = base / 'owner-asks.jsonl', base / 'decisions.jsonl'
-        ask = lambda at: owner_asks.append_owner_ask(queue, decisions, holder_id='unit-window',
+        def ask(at):
+            return owner_asks.append_owner_ask(queue, decisions, holder_id='unit-window',
                     repo='unit', topic='unit-question', question='New conditions?', clock=lambda: at)
         self.assertTrue(ask(100)['created'])
         decision = dict(ts=110, by='unit-command', repo='unit', topic='unit-question',

@@ -2,10 +2,10 @@
 """Summarize recent Codex activity. Reads Codex app files; may break on Codex updates."""
 
 import argparse
-from collections import Counter
-from pathlib import Path
 import sys
 import time
+from collections import Counter
+from pathlib import Path
 
 # Keep installed skill imports from creating bytecode beside the scripts.
 sys.dont_write_bytecode = True

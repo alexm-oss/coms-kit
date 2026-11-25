@@ -1,5 +1,4 @@
 """Durable, cooperative account-transition packets and explicit acceptance."""
-import argparse
 import hashlib
 import json
 import os
@@ -489,4 +488,8 @@ def holding_check(store, packet):
         raise ValueError("only the named holding session may relay or retire this transition")
 
 
-from coms.handover_relay import relay, accept, retire, cancel, command, add_parser
+# Public re-exports live below packet definitions because relay imports this module.
+from coms.handover_relay import (  # noqa: E402
+    accept as accept, add_parser as add_parser, cancel as cancel,
+    command as command, relay as relay, retire as retire,
+)

@@ -3,14 +3,21 @@
 import argparse
 import json
 import os
-from pathlib import Path
 import sys
 import time
+from pathlib import Path
 
 # Keep installed skill imports from creating bytecode beside the scripts.
 sys.dont_write_bytecode = True
 
-from operator_state import number, positive, read_json, reset_time, watch_dir, write_json  # noqa: E402
+from operator_state import (  # noqa: E402
+    number,
+    positive,
+    read_json,
+    reset_time,
+    watch_dir,
+    write_json,
+)
 
 
 def reading(source):

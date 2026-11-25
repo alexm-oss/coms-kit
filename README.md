@@ -53,8 +53,10 @@ The second one waits, then prints "my turn" the moment the first finishes. `coms
 | `coms status` | Who is running, and who holds what |
 | `coms msg <agent> '<text>'` | Leave another agent a message |
 | `coms inbox --consume` | Read new mail and mark it delivered |
-| `coms decide <topic> '<answer>'` | Record your answer so no agent asks again |
+| `coms decide <topic> '<answer>' --quote '<exact words>'` | Record your answer so no agent asks again |
 | `coms decisions <keyword>` | Look up a past answer |
+
+Put the owner's words in single quotes. An apostrophe inside a quote is written as `'\''`. Credential values stay out of the decision log.
 
 Day to day, you mostly just watch `coms status`. The agents use the rest themselves once the skill is installed.
 
@@ -62,7 +64,6 @@ Day to day, you mostly just watch `coms status`. The agents use the rest themsel
 
 - [`skills/coms/SKILL.md`](skills/coms/SKILL.md) is what agents read: the rules they follow.
 - [`docs/REFERENCE.md`](docs/REFERENCE.md) has every command, the Claude Code and Codex setup, how it works inside, its limits, upgrading and tests.
-
 - [Operating model](skills/coms/references/operating-model.md) introduces the six roles and their handoffs.
 - [Operator tools](skills/coms/bin/README.md) covers usage pacing, host load and scheduled job health.
 

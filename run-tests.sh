@@ -26,7 +26,7 @@ else
   echo 'UNSUPPORTED: shellcheck is not installed'
 fi
 if command -v ruff >/dev/null; then
-  ruff check .
+  ruff check --no-cache . hooks/claude/helper-brief skills/coms/bin/notify
 else
   echo 'UNSUPPORTED: ruff is not installed'
 fi

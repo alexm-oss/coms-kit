@@ -1,13 +1,12 @@
 """Render a local page of current and superseded COMS decisions."""
 
+import os
 from datetime import datetime, timezone
 from html import escape
-import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from coms.decisions import DecisionLog, select_current, topic_key
-
 
 
 def read_pins(path, optional=False):

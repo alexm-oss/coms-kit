@@ -195,7 +195,7 @@ class KitInstallTest(unittest.TestCase):
         subprocess.run(["git", "init", "-q", repo], check=True)
         self.assertEqual(self.launch("guard", repo).returncode, 0)
         r = self.sh(UNINSTALL)
-        line = next(l for l in r.stdout.splitlines() if "unguard <repo>" in l).strip()
+        line = next(row for row in r.stdout.splitlines() if "unguard <repo>" in row).strip()
         run = subprocess.run(["bash", "-c", line.replace("<repo>", "\"$1\""), "unguard", repo],
                              env=self.env, cwd=self.home, capture_output=True, text=True)
         self.assertEqual(run.returncode, 0, run.stderr)

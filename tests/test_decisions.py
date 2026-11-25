@@ -305,7 +305,8 @@ class DecisionsCliTest(unittest.TestCase):
 
     def test_ask_owner_initializes_state_reasks_and_tracks_each_show(self):
         fixture_dir = os.path.realpath(self.dir)
-        run = lambda *argv: self.run_out("--dir", fixture_dir, *argv)
+        def run(*argv):
+            return self.run_out("--dir", fixture_dir, *argv)
         self.assertEqual(run("asks", "--open"), (0, "coms: no owner asks open\n", ""))
         code, out, err = run("ask-owner", "release-date", "Ship Friday?")
         self.assertEqual((code, out, err), (0, "coms: owner ask recorded for release-date\n", ""))

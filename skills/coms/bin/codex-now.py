@@ -2,16 +2,22 @@
 """Summarize recent Codex threads. Reads Codex app files; may break on Codex updates."""
 
 import argparse
-from pathlib import Path
 import re
 import sys
 import time
+from pathlib import Path
 
 # Keep installed skill imports from creating bytecode beside the scripts.
 sys.dont_write_bytecode = True
 
-from codex_local import age_seconds, codex_home, describe, matches_fragment  # noqa: E402
-from codex_local import read_summary, rollout_paths  # noqa: E402
+from codex_local import (  # noqa: E402
+    age_seconds,
+    codex_home,
+    describe,
+    matches_fragment,
+    read_summary,
+    rollout_paths,
+)
 
 
 def main():

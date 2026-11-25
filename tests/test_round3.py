@@ -4,7 +4,6 @@ import os
 import pathlib
 import subprocess
 import sys
-import time
 
 from coms.inbox import Inbox
 from coms.store import Store

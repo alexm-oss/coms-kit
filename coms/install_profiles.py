@@ -1,8 +1,8 @@
 """Select the skill files and hooks installed by a public COMS profile."""
 import argparse
-from pathlib import Path
 import re
 import shutil
+from pathlib import Path
 
 ROLES = ("command", "codex-lead", "governor", "security", "keeper", "controller")
 PIECES = {
@@ -44,9 +44,9 @@ def staged_skill(source, dest, selected):
         shutil.copy2(path, target)
     # Offline indexes remain usable even when a referenced role was omitted.
     for path in dest.rglob("*.md"):
-        def link(match):
+        def link(match, directory=path.parent):
             label, href = match.groups()
-            if href.startswith(("https://", "http://", "#")) or (path.parent / href).exists():
+            if href.startswith(("https://", "http://", "#")) or (directory / href).exists():
                 return match.group()
             return label
         text = path.read_text()

@@ -6,10 +6,10 @@ import hashlib
 import http.client
 import json
 import os
-from pathlib import Path
 import re
 import subprocess
 import sys
+from pathlib import Path
 from urllib.parse import urlencode, urlsplit
 
 
@@ -79,15 +79,24 @@ def main(argv=None):
         with state_path.open("a+") as state:
             fcntl.flock(state, fcntl.LOCK_EX)
             state.seek(0)
-            if state.read() == digest:
+            previous = state.read()
+            if previous == "confirmed " + digest:
                 return 0
-            # Record the attempt before delivery. A lost response can follow a real send.
-            state.seek(0)
-            state.truncate()
-            state.write(digest)
-            state.flush()
+            if previous in (digest, "attempted " + digest):
+                print("notify: previous delivery unconfirmed; check the destination", file=sys.stderr)
+                return 1
+
+            def record(status):
+                state.seek(0)
+                state.truncate()
+                state.write(status + " " + digest)
+                state.flush()
+
+            # A lost response can follow a real send. Do not resend implicitly.
+            record("attempted")
             if args.state.casefold() not in {"ok", "success", "healthy", "clear", "recovered"}:
                 send(args.message)
+            record("confirmed")
     except (OSError, ValueError, subprocess.SubprocessError, http.client.HTTPException):
         print("notify: check configuration and destination before retrying", file=sys.stderr)
         return 1

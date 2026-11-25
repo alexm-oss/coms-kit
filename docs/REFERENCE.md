@@ -259,5 +259,6 @@ Pass only a shareable message. Use a stable source and a state that changes
 when the problem changes. Repeated states are silent. Send the state `ok` on
 recovery to rearm the next alert without sending a success message. Attempts
 are recorded in COMS_NOTIFY_STATE_DIR (default ~/.local/state/coms/notify).
-If delivery fails or its response is lost, check the destination before
+If delivery fails or its response is lost, repeats return a failure status
+without another send. The watcher keeps the alert unconfirmed. Check the destination before
 rearming with `ok`. The command never follows redirects.

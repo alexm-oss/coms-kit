@@ -32,7 +32,7 @@ def launchd_reason(result):
     if result.returncode:
         return "service missing" if "Could not find service" in result.stderr else None
     # Only inspect top-level launchctl fields, never nested variables or arguments.
-    fields = dict(re.findall(r"^\t([^\t\n=]+?)\s*= *([^\r\n]*)$", result.stdout, re.M))
+    fields = dict(re.findall(r"^\t([^\t\n=]+?)\s*= *([^\r\n]*)$", result.stdout, re.MULTILINE))
     if "state" not in fields:
         return None
     signal = fields.get("last terminating signal", "")
@@ -142,6 +142,8 @@ def scan(path, assets, probe, notifier):
         write_state(path, broken, notified)
     change = notify_state(broken)
     if notifier and change != notified:
+        if notified != "unconfirmed":
+            write_state(path, broken, "unconfirmed")
         p = call([str(notifier), "--source", "job-health", "--state", change,
                   "--message", f"Monitored jobs needing attention: {len(broken)}. See the local broken-assets list."])
         if p is not None and p.returncode == 0:
@@ -189,7 +191,10 @@ def main(argv=None):
         fd = os.open(lock, os.O_CREAT | os.O_RDWR, 0o600)
         with os.fdopen(fd, "w") as guard:
             fcntl.flock(guard, fcntl.LOCK_EX)
-            scan(output, assets, probe, args.notify)
+            notifier = args.notify
+            if notifier == Path(__file__).resolve().with_name("notify") and not os.environ.get("COMS_NOTIFY_BACKEND"):
+                notifier = None
+            scan(output, assets, probe, notifier)
     except (OSError, ValueError, KeyError, TypeError, RecursionError) as exc:
         print(f"job-health: unable to read configuration or update health state ({type(exc).__name__})",
               file=sys.stderr)

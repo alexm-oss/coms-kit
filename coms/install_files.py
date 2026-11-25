@@ -3,9 +3,10 @@ import argparse
 import contextlib
 import hashlib
 import json
-from pathlib import Path
-from install_profiles import staged_skill
 import tempfile
+from pathlib import Path
+
+from install_profiles import staged_skill
 
 DIR_MARK = ".coms-kit-directory"
 SKILL_MARK = ".coms-kit"

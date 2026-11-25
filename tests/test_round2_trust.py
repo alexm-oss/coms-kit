@@ -10,7 +10,6 @@ import sys
 import time
 from unittest.mock import patch
 
-from coms import cli
 from coms.inbox import Inbox, atomic_json
 from coms.store import Store
 from tests.test_switchover import ROOT, Sandbox

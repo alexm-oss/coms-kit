@@ -2,9 +2,9 @@
 
 import json
 import os
-from pathlib import Path
 import re
 import stat
+from pathlib import Path
 
 TAIL_BYTES = 4 * 1024 * 1024
 HEADER_BYTES = 1024 * 1024

@@ -1,7 +1,7 @@
 import json
-from pathlib import Path
 import subprocess
 import unittest
+from pathlib import Path
 
 HOOK = Path(__file__).resolve().parents[1] / "hooks/claude/helper-brief"
 
@@ -9,7 +9,7 @@ HOOK = Path(__file__).resolve().parents[1] / "hooks/claude/helper-brief"
 class HelperBriefTest(unittest.TestCase):
     def check_hook(self, tool, fields, *args):
         return subprocess.run([str(HOOK), *args], text=True, input=json.dumps(
-            {"tool_name": tool, "tool_input": fields}), capture_output=True)
+            {"tool_name": tool, "tool_input": fields}), capture_output=True, check=False)
 
     def test_accepts_a_complete_brief_and_declines_each_missing_field(self):
         fields = ["Task: verify fixture", "Model: chosen", "Effort: medium", "Time budget: 10 minutes"]

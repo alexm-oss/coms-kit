@@ -1,7 +1,6 @@
 """Hook visibility pointers and bounded Stop suppression, never delivery state."""
 import hashlib
 import json
-import os
 from pathlib import Path
 import sys
 

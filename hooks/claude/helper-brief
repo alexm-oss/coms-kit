@@ -15,12 +15,12 @@ def main():
     try:
         event = json.load(sys.stdin)
         if not isinstance(event, dict):
-            raise ValueError
+            raise TypeError
         if event.get("tool_name") not in (args.tool or ("Agent", "Task", "NewSession")):
             return 0
         values = event.get("tool_input")
         if not isinstance(values, dict):
-            raise ValueError
+            raise TypeError
         brief = next((values[k] for k in ("prompt", "message", "input")
                       if isinstance(values.get(k), str) and values[k].strip()), "")
         fields = {}

@@ -21,7 +21,8 @@ import subprocess
 import sys
 import time
 
-from coms.store import Store, Busy
+from coms.lease_run import command as cmd_do
+from coms.store import Store, Busy as Busy
 from coms import decisions, handover, checkpoints, migration, notifications, rotate
 from coms import current_rules, known_fixes
 from coms.inbox import cmd_inbox
@@ -43,8 +44,6 @@ def holder_id():
 def _store(explicit_dir, ttl=30.0):
     return Store(coms_dir(explicit_dir), holder_id=holder_id(), ttl=ttl)
 
-
-from coms.lease_run import command as cmd_do
 
 
 def cmd_check(args, cdir):

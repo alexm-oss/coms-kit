@@ -1,10 +1,10 @@
 import contextlib
 import io
 import os
-from pathlib import Path
 import runpy
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 SCRIPT = Path(__file__).resolve().parents[1] / "skills/coms/bin/notify"
@@ -56,6 +56,6 @@ class NotifyTest(unittest.TestCase):
         errors = io.StringIO()
         with contextlib.redirect_stderr(errors):
             self.assertEqual(self.event("warn"), 1)
-            self.assertEqual(self.event("warn"), 0)
+            self.assertEqual(self.event("warn"), 1)
         self.assertEqual(client.request.call_count, 1)
         self.assertNotIn("private fixture detail", errors.getvalue())

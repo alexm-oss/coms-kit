@@ -2,13 +2,13 @@
 
 import json
 import os
-from pathlib import Path
 import runpy
 import stat
 import subprocess
 import sys
-from tempfile import TemporaryDirectory
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
 from coms.decisions import DecisionLog
@@ -268,3 +268,23 @@ class JobHealth(unittest.TestCase):
             status.write_text("42")
             check("--notify")
             self.assertEqual(len(outbox.read_text().splitlines()), 2)
+
+            # A failing sink may have accepted the request. Repeats stay
+            # unconfirmed without a second delivery, and recovery rearms it.
+            status.write_text("0")
+            check("--notify")
+            sink.write_text('#!/bin/sh\ncat >> "$HOME/test-outbox"\nexit 1\n')
+            status.write_text("42")
+            check("--notify")
+            check("--notify")
+            saved = home / "state" / "broken-assets.json"
+            self.assertEqual(json.loads(saved.read_text())["notified"], "unconfirmed")
+            self.assertEqual(len(outbox.read_text().splitlines()), 3)
+            status.write_text("0")
+            check("--notify")
+            self.assertEqual(json.loads(saved.read_text())["notified"], "ok")
+            sink.write_text('#!/bin/sh\ncat >> "$HOME/test-outbox"\n')
+            status.write_text("42")
+            check("--notify")
+            self.assertNotEqual(json.loads(saved.read_text())["notified"], "unconfirmed")
+            self.assertEqual(len(outbox.read_text().splitlines()), 4)
