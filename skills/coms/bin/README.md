@@ -107,6 +107,37 @@ Pacing samples and the baseline are local files under `COMS_WATCH_DIR` by defaul
 `--state` override. Use separate state files for independent meter profiles. The dashboard-specific
 usage writer is omitted. The examples above use direct usage values and a plain JSON input file.
 
+
+### Known fixes
+
+Copy the installed skill's bin/known-fixes.txt starter to known-fixes.txt in your
+COMS state folder, or pass a catalog with `coms known-fixes --catalog FILE`.
+Uncomment fictional examples only to try them with a fresh test state. Supply real
+entries as symptom words, fix, tool and decision, separated by pipe characters.
+Every symptom word must appear in an ASK or BLOCKER's topic, need or body. The
+most specific matching entry wins, with catalog order breaking ties.
+
+Enroll a dedicated local holder with an explicit session marker. Run
+`coms known-fixes` under that identity for a preview, then optionally schedule
+`coms known-fixes --reply --reply-to HOLDER` with the same identity. Repeat
+`--reply-to` for each consenting local peer. Each matching original is answered once. A newly sent card can receive a reply
+even if its wording repeats an earlier question. The bot reviews the complete live
+inbox without advancing its delivery checkpoint. The PROOF path is relative to the state folder when the catalog is inside it.
+Spaces in the path are percent-escaped. Replies and correlation stay in local
+COMS mail, including after inbox rotation. The installed skill's bin/known-fixes
+wrapper runs the same command.
+
+### Current rules
+
+Use `coms current-rules` to build current-rules.html inside the COMS state folder.
+It follows `coms decisions --current`: the newest appended ruling wins, explicit
+replacements retire older topics, and expired rulings appear in the history.
+Copy bin/rule-pins.txt to rule-pins.txt in the state folder and list one current
+topic per line to place those rulings first. The builder accepts `--pins FILE`
+and `--output FILE`. The page includes recorded decision text and is private to
+your machine. The installed skill's bin/current-rules wrapper runs the same
+command.
+
 ### Job health
 
 Run the installed skill's `bin/job-health.py --asset NAME`, using a launchd

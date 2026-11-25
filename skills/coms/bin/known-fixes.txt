@@ -1,0 +1,3 @@
+# Symptom words | fix | tool | decision
+# fictional display blank | Refit the sample display. | display-check | display fit
+# fictional tray tilted | Reseat the practice tray. | tray-check | tray fit

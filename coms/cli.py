@@ -23,6 +23,7 @@ import time
 
 from coms.store import Store, Busy
 from coms import decisions, handover, checkpoints, migration, notifications, rotate
+from coms import current_rules, known_fixes
 from coms.inbox import cmd_inbox
 from coms.identity import IdentityError, check as check_identity
 from coms.owner_asks import append_owner_ask, init_owner_asks, open_owner_asks, show_owner_ask
@@ -458,6 +459,8 @@ DISPATCH = {
     "who": cmd_who,
     "decide": lambda a, d: decisions.cmd_decide(a, coms_dir(d), holder_id(), _current_repo()),
     "decisions": lambda a, d: decisions.cmd_decisions(a, coms_dir(d)),
+    "current-rules": lambda a, d: current_rules.run(a, coms_dir(d)),
+    "known-fixes": lambda a, d: known_fixes.run(a, coms_dir(d)),
     "ask-owner": cmd_ask_owner,
     "asks": cmd_asks,
 }
@@ -529,6 +532,8 @@ def build_parser():
     handover.add_parser(sub)
     rotate.add_parser(sub)
     decisions.add_parsers(sub)
+    current_rules.add_parser(sub)
+    known_fixes.add_parser(sub)
     ask = sub.add_parser("ask-owner", help="record one bounded pending question for the human")
     ask.add_argument("topic", help="short exact decision topic")
     ask.add_argument("question", nargs="+", help="the question to ask")
