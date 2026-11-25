@@ -5,9 +5,7 @@ description: Use when several AI agents share this machine, or the user says /co
 
 # coms: take your turn, don't clobber
 
-You may be one of several agents on this machine at once: other windows of your tool, other tools,
-and scripts. coms makes everyone take turns on operations only one agent should run at a time, gives
-you a shared room to see who is doing what, and lets agents message each other, on this machine only.
+Use coms to take turns on shared operations, see who is working, and exchange messages on this machine.
 
 ## First: your holder id and session marker
 
@@ -43,62 +41,14 @@ The examples below show the bare command for short; add your two values when you
    installs a backstop hook that blocks raw commits to main/master while someone holds the lease. Repos
    with their own hooks, husky or otherwise, get the mark only: coms leaves their hooks alone.
 
-4. Check the installed setup from any directory with `coms setup --status`.
-   For a Claude and Codex pair, run `coms setup --status --profile pair` to
-   compare directly with the recommended pair. From the kit checkout,
-   `./install.sh --status --profile pair` gives the same comparison.
-
-   Before offering anything, check this window's previous answers:
-
-       coms decisions --current --json "setup-$COMS_HOLDER-"
-
-   Use your unique holder for this session. Skip any piece whose exact topic
-   `setup-$COMS_HOLDER-$piece` has answer `declined`. Show the remaining
-   missing pieces once per session, one line each, using the benefit and the
-   exact add command printed by status. If the list is empty, continue quietly.
-   Ask one question about the piece that fits the work in front of you. Wait
-   for the human's answer before running its add command. An unanswered offer
-   stays pending. Keep normal work moving.
-
-   If the human declines, set `piece` to the suggested piece name and record
-   the actual answer once. Use the quoting rules below:
-
-       coms decide "setup-$COMS_HOLDER-$piece" 'declined' --quote '<exact words>'
-
-   Never suggest that piece again in this session after a decline. If the human
-   declines all the listed pieces, record the decline for each. Check the
-   same decisions before offering a piece later from a role guide. Choosing
-   files leaves destinations, schedules and permission to act up to the human.
-
-## When a piece helps
-
-Use the installed skill's `bin` and `references` directories. For an optional
-piece that is missing, offer `coms setup --add PIECE` with the named piece
-and the reason it fits. Add one accepted piece without dropping prior choices.
-Internal modules run through their public commands.
-
-| When | Installed tool or guide | Optional piece |
-| --- | --- | --- |
-| Mail should interrupt the current work once | Run `watch-once.sh`; use `watch-run.py` through the watcher to manage its child processes. | Core |
-| Several watchers should stream together | Run `watch-all.sh`; `inbox-digest.sh` supplies actionable mail as it arrives. | Core |
-| A watch signals new mail | Use `read-batch.sh` to read it and advance delivery. | Core |
-| A local desktop window needs identifying | Use `coms-peer` with the session list described in `claude-desktop.md`. | Core |
-| A replacement window is taking over | Use `handover-note` and `handover.md`; add the full guide for role-specific checklists. | `handover-guide` |
-| Team members need to agree responsibilities | Read `operating-model.md` and, with a role selected, `protocol.md` for reasons and grant boundaries. | Core index |
-| The owner needs one coordinator | Use `command.md` to route work and owner questions. | `command` |
-| Codex work needs a named lead | Use `codex-lead.md` to assign work and check evidence. | `codex-lead` |
-| Several lanes land in one repository | Use `controller.md` to coordinate integration and shared tests. | `controller` |
-| Test scope or a stuck rig needs a ruling | Use `governor.md` to brief the test reviewer. | `governor` |
-| A change touches secrets, sessions or keys | Use `security-reviewer.md` to brief the independent reviewer. | `security` |
-| Decisions and follow-ups span several products | Use `keeper.md` to file one sourced card per affected product. | `keeper` |
-| A helper is about to receive work | Use `helper-brief` to check its task, model, effort and time budget after hook configuration. | `helper-brief` |
-| A usage warning arrives before widening work | Run `pace.py` for a five-hour reading or `codex-pace-watch.sh` for a weekly reading; the latter calls `codex_pace_watch.py`. Both use `operator_state.py` for local state. | `pacing` |
-| A Codex window or its helpers seem busy | Run `codex-now.py` or `codex-fleet.py`; both use `codex_local.py` to summarize local activity. | `codex-view` |
-| The machine feels slow or hot | Run `load-watch.sh --once` before changing lane width. | `load-watch` |
-| An actionable change needs the human away from the desk | Use `notify` with an approved destination and shareable text. | `notify` |
-| A scheduled job appears to be failing | Run `job-health.py` for that asset, or configure the selected jobs in `job-watch.txt`. | `job-health` |
-| An ASK or BLOCKER repeats a known symptom | Use `known-fixes` to preview matches against a populated copy of `known-fixes.txt`. | `known-fixes` |
-| Many decisions obscure the current answer | Use `current-rules` to build the private page and `rule-pins.txt` to prioritize topics. | `current-rules` |
+4. Check `coms setup --status` (or `./install.sh --status` from the kit). For two model families, run `coms setup --status --profile pair`.
+   Read `coms decisions --current --json "setup-$COMS_HOLDER-"` first. Skip exact topics with answer `declined`.
+   Offer the remaining missing pieces once this session, one line each with the printed benefit and exact add command.
+   Ask one question about the piece relevant now. Wait for a yes before adding it. Leave unanswered offers pending.
+   For a no, set `piece` to its name and run `coms decide "setup-$COMS_HOLDER-$piece" declined --quote '<exact words>'`.
+   Record each piece if all are declined. Skip declined pieces for the rest of this session, including in role guides.
+   An empty list needs no prompt. Continue other authorised work. Endpoints, schedules and replies require their own opt-in.
+   See [when each piece helps](references/operating-model.md#when-a-piece-helps) for the triggers and tools.
 
 ## The one rule
 
@@ -127,16 +77,10 @@ agents take turns, it never grants permission.
 a feature worktree, `coms do main -- git merge --no-ff my-branch` merges the branch into itself, prints
 "Already up to date", exits 0 and lands nothing. So:
 
-1. Target the main checkout explicitly, whatever your folder:
+Target the main checkout with the `git -C` merge shown above. Then verify the landing:
 
-       coms do main -- git -C /path/to/main/checkout merge --no-ff my-branch
-
-2. Prove the landing afterwards. Never trust the exit code alone:
-
-       git -C /path/to/main/checkout merge-base --is-ancestor <your-sha> main \
-         && echo LANDED || echo "NOT LANDED"
-
-Exit code 0 means a command ran, not that the thing you wanted happened.
+    git -C /path/to/main/checkout merge-base --is-ancestor <your-sha> main \
+      && echo LANDED || echo "NOT LANDED"
 
 ## Messages between agents
 
