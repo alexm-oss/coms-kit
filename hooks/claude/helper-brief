@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# coms-kit hook
 """Opt-in PreToolUse check for helper and new-session briefs."""
 import argparse
 import json

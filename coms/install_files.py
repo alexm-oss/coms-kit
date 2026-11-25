@@ -4,7 +4,7 @@ import contextlib
 import hashlib
 import json
 from pathlib import Path
-import shutil
+from install_profiles import staged_skill
 import tempfile
 
 DIR_MARK = ".coms-kit-directory"
@@ -63,10 +63,10 @@ def remove_skill(source, dest):
         dest.rmdir()
 
 
-def copy_skill(source, dest):
+def copy_skill(source, dest, selection):
     with tempfile.TemporaryDirectory(dir=dest.parent) as tmp:
         staged = Path(tmp) / "skill"
-        shutil.copytree(source, staged, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        staged_skill(source, staged, selection)
         (staged / SKILL_MARK).write_text(json.dumps(files(staged), sort_keys=True))
         if dest.exists():
             remove_skill(source, dest)
@@ -81,12 +81,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("mkdir", "prune", "copy-skill", "remove-skill"))
     parser.add_argument("paths", nargs="+", type=Path)
+    parser.add_argument("--selection", default="")
     args = parser.parse_args()
     if args.action in ("mkdir", "prune"):
         for path in args.paths:
             (mkdir if args.action == "mkdir" else prune)(path)
+    elif args.action == "copy-skill":
+        copy_skill(*args.paths, args.selection.split()[1:])
     else:
-        (copy_skill if args.action == "copy-skill" else remove_skill)(*args.paths)
+        remove_skill(*args.paths)
 
 
 if __name__ == "__main__":

@@ -26,6 +26,9 @@ You need Python 3.9+, git 2.31+ and bash, on macOS or Linux.
     cd coms-kit
     ./install.sh
 
+The [recommended setup](docs/recommended-setup.md) explains the optional profiles.
+Use `./install.sh --profile pair` for two model families or `./install.sh --status` to inspect an install.
+
 This adds a `coms` command and installs the skill that teaches agents the rules. It never overwrites anything it didn't install.
 
 ## See it work in a minute

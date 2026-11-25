@@ -9,7 +9,9 @@ team defines its approved spaces and grants before work begins.
    write outside authorised spaces, touch customer data, spend money,
    contact real people or expose credentials, sessions or keys. Use
    synthetic data, approved test destinations and the owner's grant for
-   external publication or shipping. Ordinary work inside its approved
+   external publication or shipping. Silence, including a deadline passing
+   after a proposed action, never grants permission. An absent human may
+   have had no opportunity to see the proposal. Ordinary work inside its approved
    scope proceeds without another permission round. A current standing
    grant can cover routine actions, including an agreed shared-branch
    landing process.

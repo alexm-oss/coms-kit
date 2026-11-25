@@ -532,8 +532,11 @@ def build_parser():
     handover.add_parser(sub)
     rotate.add_parser(sub)
     decisions.add_parsers(sub)
-    current_rules.add_parser(sub)
-    known_fixes.add_parser(sub)
+    selection = os.environ.get("COMS_KIT_SELECTION", "").split()
+    if not selection or "current-rules" in selection:
+        current_rules.add_parser(sub)
+    if not selection or "known-fixes" in selection:
+        known_fixes.add_parser(sub)
     ask = sub.add_parser("ask-owner", help="record one bounded pending question for the human")
     ask.add_argument("topic", help="short exact decision topic")
     ask.add_argument("question", nargs="+", help="the question to ask")

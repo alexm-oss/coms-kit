@@ -230,13 +230,13 @@ See LICENSE for the MIT licence.
 
 ## Optional helper briefs
 
-The optional `hooks/claude/helper-brief` command reads a Claude Code PreToolUse
-event on stdin. Point a hook at its absolute path inside the clone to enable it.
+The optional `hooks/claude/helper-brief` command (selected with `--with helper-brief`) reads a Claude Code PreToolUse
+event on stdin. Point a hook at the installed helper to enable it.
 It accepts four nonempty labeled lines in the helper prompt: Task, Model,
 Effort and Time budget. Structured tool input fields also count. An incomplete
 brief exits 2 and names the missing fields. Other tools pass through.
 
-    {"matcher":"Agent|Task|NewSession","hooks":[{"type":"command","command":"'/path/to/kit/hooks/claude/helper-brief'"}]}
+    {"matcher":"Agent|Task|NewSession","hooks":[{"type":"command","command":"'/path/to/.claude/hooks/helper-brief'"}]}
 
 Append the group to the PreToolUse list in your own Claude settings. For a
 different new-session tool, include its exact name in the matcher and pass

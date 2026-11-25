@@ -14,13 +14,26 @@ SKILLS="${COMS_SKILLS_DIR:-$HOME/.claude/skills}"
 HOOKS="${COMS_HOOKS_DIR:-$HOME/.claude/hooks}"
 STATE="${COMS_STATE_DIR:-$HOME/.claude/coms}"
 
-cli_only=0 claude_hooks=0 force=0
-for arg in "$@"; do
+cli_only=0 claude_hooks=0 force=0 status=0
+options=()
+export PYTHONDONTWRITEBYTECODE=1
+while [ "$#" -gt 0 ]; do
+  arg=$1
+  shift
   case "$arg" in
     --cli-only) cli_only=1 ;;
     --claude-hooks) claude_hooks=1 ;;
     --force) force=1 ;;
-    -h|--help) sed -n '2,8p' "$0"; exit 0 ;;
+    --status) status=1 ;;
+    --profile|--with|--without)
+      if [ "$#" -eq 0 ]; then echo "install.sh: $arg needs a value" >&2; exit 2; fi
+      options+=("$arg" "$1")
+      shift ;;
+    -h|--help)
+      sed -n '2,8p' "$0"
+      echo "Use --status to inspect a prior installation."
+      python3 "$ROOT/coms/install_profiles.py" --help
+      exit 0 ;;
     *) echo "install.sh: unknown option $arg" >&2; exit 2 ;;
   esac
 done
@@ -28,6 +41,18 @@ done
 python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' 2>/dev/null \
   || { echo "install.sh: coms needs python3 3.9 or newer on PATH" >&2; exit 1; }
 command -v git >/dev/null 2>&1 || { echo "install.sh: coms needs git" >&2; exit 1; }
+
+if [ "$status" = 1 ]; then
+  python3 -B -I -c 'import sys; sys.path.insert(0, sys.argv[1]); from install_profiles import status; status(sys.argv[2])' "$ROOT/coms" "$BIN"
+  exit 0
+fi
+selection=$(python3 "$ROOT/coms/install_profiles.py" ${options[@]+"${options[@]}"})
+if [ "$cli_only" = 1 ] && [ "$selection" != "core" ]; then
+  echo "install.sh: --cli-only installs core. Use a profile for optional skill files." >&2
+  exit 2
+fi
+helper=0
+case " $selection " in *" helper-brief "*) helper=1 ;; esac
 
 # ours <path> <marker>: true when this kit installed the file or folder.
 ours() {
@@ -52,6 +77,10 @@ check "$BIN/coms" "# coms-kit launcher"
 if [ "$claude_hooks" = 1 ]; then
   check "$HOOKS/coms-context" "# coms-kit hook"
   check "$HOOKS/coms-inbox-stop-gate.sh" "# coms-kit hook"
+fi
+
+if [ "$helper" = 1 ]; then
+  check "$HOOKS/helper-brief" "# coms-kit hook"
 fi
 
 stamp="$(date +%Y%m%d-%H%M%S)"
@@ -85,6 +114,8 @@ fi
   printf '%s\n' '#!/usr/bin/env bash'
   printf '%s\n' "# coms-kit launcher: runs this kit's coms with the kit first on the import path"
   printf '%s\n' '# and the current folder off it, so a coms/ package where you stand cannot stand in.'
+  printf '# coms-kit selection: %s\n' "$selection"
+  printf 'export COMS_KIT_SELECTION=%q\n' "$selection"
   printf 'kit=%q\n' "$ROOT"
   # shellcheck disable=SC2016  # literal on purpose: the launcher expands $kit and $@ when it runs
   printf '%s\n' 'exec python3 -c '"'"'import sys; kit = sys.argv.pop(1); sys.path[:] = [kit] + [p for p in sys.path if p != ""]; from coms.cli import main; sys.exit(main())'"'"' "$kit" "$@"'
@@ -93,13 +124,23 @@ chmod +x "$BIN/coms"
 
 if [ "$cli_only" = 0 ]; then
   python3 "$ROOT/coms/install_files.py" mkdir "$SKILLS"
-  python3 "$ROOT/coms/install_files.py" copy-skill "$ROOT/skills/coms" "$SKILLS/coms"
+  python3 "$ROOT/coms/install_files.py" copy-skill "$ROOT/skills/coms" "$SKILLS/coms" --selection "$selection"
 fi
 
 if [ "$claude_hooks" = 1 ]; then
   python3 "$ROOT/coms/install_files.py" mkdir "$HOOKS"
   cp "$ROOT/hooks/claude/coms-context" "$ROOT/hooks/claude/coms-inbox-stop-gate.sh" "$HOOKS/"
   chmod +x "$HOOKS/coms-context" "$HOOKS/coms-inbox-stop-gate.sh"
+fi
+
+if [ "$helper" = 1 ]; then
+  python3 "$ROOT/coms/install_files.py" mkdir "$HOOKS"
+  cp "$ROOT/hooks/claude/helper-brief" "$HOOKS/helper-brief"
+  chmod +x "$HOOKS/helper-brief"
+  echo "To activate the selected helper hook, see docs/REFERENCE.md."
+elif ours "$HOOKS/helper-brief" "# coms-kit hook"; then
+  rm -f "$HOOKS/helper-brief"
+  python3 "$ROOT/coms/install_files.py" prune "$HOOKS"
 fi
 
 echo "coms installed:"

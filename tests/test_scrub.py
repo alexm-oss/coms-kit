@@ -70,6 +70,7 @@ class ScrubTest(unittest.TestCase):
                 "operating-model", "protocol", "security-reviewer",
             )
         }
+        role_guides.add(os.path.join("docs", "recommended-setup.md"))
         hits = []
         for rel, text in texts():
             if not rel.endswith(".md"):

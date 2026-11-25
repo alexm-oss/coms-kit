@@ -6,6 +6,7 @@
 #
 # Usage: ./uninstall.sh [--purge]
 set -euo pipefail
+export PYTHONDONTWRITEBYTECODE=1
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 BIN="${COMS_BIN_DIR:-$HOME/.local/bin}"
@@ -43,7 +44,7 @@ elif [ -e "$SKILLS/coms" ] || [ -L "$SKILLS/coms" ]; then
 fi
 
 hooks_removed=0
-for h in coms-context coms-inbox-stop-gate.sh; do
+for h in coms-context coms-inbox-stop-gate.sh helper-brief; do
   if [ -f "$HOOKS/$h" ] && grep -q "# coms-kit hook" "$HOOKS/$h" 2>/dev/null; then
     hooks_removed=1
   fi
